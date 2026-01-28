@@ -48,7 +48,7 @@ type Message struct {
 	ID             string                 `gorm:"type:char(36);primaryKey"`
 	SessionID      string                 `gorm:"type:varchar(64);not null;index"` // 所属会话ID
 	ParentID       *string                `gorm:"index:idx_parent"`
-	Role           string                 `gorm:"type:varchar(20);not null"` // "user" 或 "assistant"
+	Role           string                 `gorm:"type:varchar(20);not null"` // "user" 或 "assistant"或tool
 	Type           string                 `gorm:"type:varchar(20);not null"` // text、img、file等
 	Content        string                 `gorm:"type:longtext;not null"`
 	TokenCount     int                    `gorm:"default:0"`                                         // 建议添加：消息token数统计
