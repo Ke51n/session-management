@@ -143,11 +143,12 @@ type SSEMessage struct {
 
 // 请求和响应结构体
 type DialogRequest struct {
-	SessionID string `json:"session_id" binding:"required"`
-	Query     string `json:"query" binding:"required"`
-	UserID    string `json:"user_id" binding:"required"`
-	MessageOP string `json:"message_op"` //TODO:
-	MessageID string `json:"message_id"`
+	SessionID string   `json:"session_id" binding:"required"`
+	Query     string   `json:"query" binding:"required"`
+	UserID    string   `json:"user_id" binding:"required"`
+	MessageOP string   `json:"message_op"` //TODO:
+	MessageID string   `json:"message_id"`
+	Files     []string `json:"file"`
 }
 
 type DialogResponse struct {
@@ -481,11 +482,13 @@ func buildPrompt(history []models.Message, currentQuery string) string {
 	return promptBuilder.String()
 }
 
-// 创建新会话的接口
+// 创建新会话的接口-与第一个问题绑定
 type CreateSessionRequest struct {
 	UserID    string `json:"user_id" binding:"required"`
 	Title     string `json:"title" binding:"required"`
 	ProjectID string `json:"project_id"`
+	Query     string `json:"query"`
+	File      string `json:"file"`
 }
 
 func handleCreateSession(c *gin.Context) {
@@ -511,8 +514,20 @@ func handleCreateSession(c *gin.Context) {
 
 	db.Create(&session)
 
+	//转发到流式接口
+	dialogReq := DialogRequest{
+		UserID:    req.UserID,
+		SessionID: session.ID,
+		Query:     req.Query,
+		Files:     req.File,
+		MessageID: "",       //上一条消息id，第一次对话为空
+		MessageOP: "create", //操作类型，create表示创建新对话
+	}
+	handleDialogStreamWithResumeInner(c, dialogReq)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
+		"info":       "会话创建成功",
 		"session_id": session.ID,
 		"title":      session.Title,
 	})
@@ -546,7 +561,6 @@ func handleGetHistory(c *gin.Context) {
 			"count":    len(messages),
 		})
 	} else {
-
 		// 验证会话权限
 		var sessions []models.Session
 		if db.Where(" user_id = ? AND deleted = ?", userID, false).Order("updated_at DESC").Find(&sessions).Error != nil {
@@ -624,11 +638,9 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now()})
 	})
 
-	// r.POST("/api/dialog", handleDialog)              // 传统对话接口
-	// r.POST("/api/dialog/stream", handleDialogStream) // 新增流式接口
 	// 流式对话路由
-	r.POST("/api/dialog/stream", handleDialogStreamWithResume) // 支持断点续传的流式对话接口
-	r.GET("/api/stream/status", handleStreamStatus)            // 查询流式对话状态接口
+	r.POST("/api/dialog/stream", handleDialogStreamWithResumeApi) // 支持断点续传的流式对话接口
+	r.GET("/api/stream/status", handleStreamStatus)               // 查询某个会话状态接口
 
 	r.POST("/api/session/create", handleCreateSession)
 	r.GET("/api/session/query", handleGetHistory)

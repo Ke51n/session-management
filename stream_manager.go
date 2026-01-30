@@ -11,12 +11,12 @@ import (
 
 // StreamState 流式生成状态
 type StreamState struct {
-	MessageID    string                      `json:"message_id"`    // 消息ID
+	sessionID    string                      `json:"message_id"`    // 消息ID
 	SessionID    string                      `json:"session_id"`    // 会话ID
 	Query        string                      `json:"query"`         // 用户查询
+	File         string                      `json:"file"`          // 文件路径
 	FullResponse string                      `json:"full_response"` // 完整响应（逐步构建）
 	Chunks       []string                    `json:"chunks"`        // 所有chunk
-	SentIndex    int                         `json:"sent_index"`    // 已发送到的索引
 	IsCompleted  bool                        `json:"is_completed"`  // 是否完成
 	CreatedAt    time.Time                   `json:"created_at"`    // 创建时间
 	UpdatedAt    time.Time                   `json:"updated_at"`    // 更新时间
@@ -35,7 +35,7 @@ type StreamChunk struct {
 
 // StreamManager 流状态管理器
 type StreamManager struct {
-	streams map[string]*StreamState // messageID -> StreamState
+	streams map[string]*StreamState // sessionID -> StreamState
 	mu      sync.RWMutex
 }
 
@@ -58,19 +58,19 @@ func (sm *StreamManager) GetOrCreateStream(sessionID, query string) *StreamState
 	// 创建新流
 	messageID := uuid.NewString()
 	stream := &StreamState{
-		MessageID:    messageID,
+		sessionID:    messageID,
 		SessionID:    sessionID,
 		Query:        query,
+		File:         "",
 		FullResponse: "",
 		Chunks:       []string{},
-		SentIndex:    -1,
 		IsCompleted:  false,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 		Clients:      make(map[string]chan StreamChunk),
 	}
 
-	sm.streams[messageID] = stream
+	sm.streams[sessionID] = stream
 
 	// 清理过期流（24小时）
 	go sm.cleanupExpiredStreams()
@@ -79,11 +79,11 @@ func (sm *StreamManager) GetOrCreateStream(sessionID, query string) *StreamState
 }
 
 // 添加chunk到流
-func (sm *StreamManager) AddChunk(messageID string, chunk string) {
+func (sm *StreamManager) AddChunk(sessionID string, chunk string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	if stream, exists := sm.streams[messageID]; exists {
+	if stream, exists := sm.streams[sessionID]; exists {
 		stream.Chunks = append(stream.Chunks, chunk)
 		stream.FullResponse += chunk
 		stream.UpdatedAt = time.Now()
@@ -91,11 +91,11 @@ func (sm *StreamManager) AddChunk(messageID string, chunk string) {
 }
 
 // 标记流完成
-func (sm *StreamManager) CompleteStream(messageID string) {
+func (sm *StreamManager) CompleteStream(sessionID string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	if stream, exists := sm.streams[messageID]; exists {
+	if stream, exists := sm.streams[sessionID]; exists {
 		stream.IsCompleted = true
 		stream.UpdatedAt = time.Now()
 
@@ -105,38 +105,34 @@ func (sm *StreamManager) CompleteStream(messageID string) {
 			close(ch)
 			delete(stream.Clients, clientID)
 		}
+		//删除流
+		delete(sm.streams, sessionID)
 	}
 }
 
 // 客户端注册监听
-func (sm *StreamManager) RegisterClient(messageID, clientID string) <-chan StreamChunk {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
+func (sm *StreamManager) RegisterClient(stream *StreamState, clientID string) <-chan StreamChunk {
+	ch := make(chan StreamChunk, 100)
+	stream.Clients[clientID] = ch
 
-	if stream, exists := sm.streams[messageID]; exists {
-		ch := make(chan StreamChunk, 100)
-		stream.Clients[clientID] = ch
-
-		// 如果流已完成，立即发送完成信号
-		if stream.IsCompleted {
-			go func() {
-				ch <- StreamChunk{IsFinal: true}
-				close(ch)
-			}()
-		}
-
-		return ch
+	// 如果流已完成，立即发送完成信号
+	if stream.IsCompleted {
+		go func() {
+			ch <- StreamChunk{IsFinal: true}
+			close(ch)
+		}()
+		return nil
 	}
+	return ch
 
-	return nil
 }
 
 // 客户端注销
-func (sm *StreamManager) UnregisterClient(messageID, clientID string) {
+func (sm *StreamManager) UnregisterClient(sessionID, clientID string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	if stream, exists := sm.streams[messageID]; exists {
+	if stream, exists := sm.streams[sessionID]; exists {
 		if ch, exists := stream.Clients[clientID]; exists {
 			close(ch)
 			delete(stream.Clients, clientID)
@@ -151,7 +147,7 @@ func (sm *StreamManager) GetPendingChunks(messageID string) []StreamChunk {
 
 	if stream, exists := sm.streams[messageID]; exists && !stream.IsCompleted {
 		var pending []StreamChunk
-		for i := stream.SentIndex + 1; i < len(stream.Chunks); i++ {
+		for i := 0; i < len(stream.Chunks); i++ {
 			pending = append(pending, StreamChunk{
 				ChunkID: i,
 				Content: stream.Chunks[i],
@@ -171,14 +167,14 @@ func (sm *StreamManager) cleanupExpiredStreams() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	cutoff := time.Now().Add(-24 * time.Hour)
-	for msgID, stream := range sm.streams {
+	cutoff := time.Now().Add(-1 * time.Minute)
+	for sessionID, stream := range sm.streams {
 		if stream.UpdatedAt.Before(cutoff) {
 			for clientID, ch := range stream.Clients {
 				close(ch)
 				delete(stream.Clients, clientID)
 			}
-			delete(sm.streams, msgID)
+			delete(sm.streams, sessionID)
 		}
 	}
 }

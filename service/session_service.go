@@ -71,17 +71,16 @@ func (s *SessionService) buildContextFromRootInMemory(sessionID, targetMessageID
 }
 
 // CreateMessage 创建新消息
-func (s *SessionService) CreateMessage(sessionID string, parentID *string, role, content string, vGroupID string) (*model.Message, error) {
+func (s *SessionService) CreateMessage(sessionID string, parentID *string, role, content string) (*model.Message, error) {
 	msg := &model.Message{
-		ID:             uuid.New().String(),
-		SessionID:      sessionID,
-		ParentID:       parentID,
-		Role:           role,
-		Type:           "text", //TODO
-		Content:        content,
-		VersionGroupID: vGroupID,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:        uuid.New().String(),
+		SessionID: sessionID,
+		ParentID:  parentID,
+		Role:      role,
+		Type:      "text", //TODO
+		Content:   content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 	if err := s.db.Create(msg).Error; err != nil {
 		return nil, err
@@ -116,14 +115,6 @@ func (s *SessionService) Regenerate(userID, sessionID, parentMessageID string) (
 	// 查找是否已有 version_group_id，应该是有的，它们的version_group_id相同
 	var existing model.Message
 	s.db.Where("parent_id = ? AND role = 'assistant'", parentMessageID).First(&existing)
-	var vGroupID string
-	if existing.ID != "" && existing.VersionGroupID != "" {
-		vGroupID = existing.VersionGroupID
-	} else {
-		//兼容异常情况，生成新的version_group_id
-		vGroupID = uuid.New().String()
-
-	}
 
 	// 构建上下文（到 parentMessageID 为止）
 	context, err := s.buildContextFromRootInMemory(sessionID, parentMessageID)
@@ -137,7 +128,7 @@ func (s *SessionService) Regenerate(userID, sessionID, parentMessageID string) (
 	modelResponse := "这是重新生成的回答。时间戳：" + time.Now().Format(time.RFC3339)
 
 	// 保存新回答
-	newMsg, err := s.CreateMessage(sessionID, &parentMessageID, "assistant", modelResponse, vGroupID)
+	newMsg, err := s.CreateMessage(sessionID, &parentMessageID, "assistant", modelResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +152,7 @@ func (s *SessionService) EditAndResend(userID, sessionID, targetMessageID, newCo
 	}
 
 	// 创建新 user 消息（继承原 parent）
-	newUserMsg, err := s.CreateMessage(sessionID, targetMsg.ParentID, "user", newContent, targetMsg.VersionGroupID)
+	newUserMsg, err := s.CreateMessage(sessionID, targetMsg.ParentID, "user", newContent)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +169,7 @@ func (s *SessionService) EditAndResend(userID, sessionID, targetMessageID, newCo
 	modelResponse := "这是基于修改后问题的回答。"
 
 	// 保存新 assistant 消息
-	newAssistantMsg, err := s.CreateMessage(sessionID, &newUserMsg.ID, "assistant", modelResponse, uuid.NewString())
+	newAssistantMsg, err := s.CreateMessage(sessionID, &newUserMsg.ID, "assistant", modelResponse)
 	if err != nil {
 		return nil, err
 	}
