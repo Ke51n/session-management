@@ -14,10 +14,15 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
 
-	// "gorm.io/driver/sqlite"
 	"encoding/json"
 
 	"gorm.io/gorm"
+
+	my_handler "session-demo/handler"
+	my_response "session-demo/response"
+	my_service "session-demo/service"
+
+	"github.com/emicklei/go-restful/v3"
 )
 
 // 全局数据库实例
@@ -98,7 +103,6 @@ func createTestData() {
 			ID:        uuid.NewString(),
 			SessionID: sessionID,
 			Role:      "user",
-			Type:      "text",
 			Content:   "你好，我想了解天气情况",
 			CreatedAt: time.Now().Add(-2 * time.Hour),
 			UpdatedAt: time.Now().Add(-2 * time.Hour),
@@ -107,7 +111,6 @@ func createTestData() {
 			ID:        uuid.NewString(),
 			SessionID: sessionID,
 			Role:      "assistant",
-			Type:      "text",
 			Content:   "今天天气晴朗，气温25度，适合外出活动。",
 			CreatedAt: time.Now().Add(-1 * time.Hour),
 			UpdatedAt: time.Now().Add(-1 * time.Hour),
@@ -116,7 +119,6 @@ func createTestData() {
 			ID:        uuid.NewString(),
 			SessionID: sessionID,
 			Role:      "user",
-			Type:      "text",
 			Content:   "那明天呢？",
 			CreatedAt: time.Now().Add(-30 * time.Minute),
 			UpdatedAt: time.Now().Add(-30 * time.Minute),
@@ -143,12 +145,12 @@ type SSEMessage struct {
 
 // 请求和响应结构体
 type DialogRequest struct {
-	SessionID string   `json:"session_id" binding:"required"`
-	Query     string   `json:"query" binding:"required"`
-	UserID    string   `json:"user_id" binding:"required"`
-	MessageOP string   `json:"message_op"` //TODO:
-	MessageID string   `json:"message_id"`
-	Files     []string `json:"file"`
+	SessionID string        `json:"session_id" binding:"required"`
+	Query     string        `json:"query" binding:"required"`
+	UserID    string        `json:"user_id" binding:"required"`
+	MessageOP string        `json:"message_op"` //TODO:
+	MessageID string        `json:"message_id"`
+	Files     []models.File `json:"file"`
 }
 
 type DialogResponse struct {
@@ -223,148 +225,6 @@ func splitByRune(text string) []string {
 	return chunks
 }
 
-// SSE 流式对话接口
-// func handleDialogStream(c *gin.Context) {
-// 	var req DialogRequest
-
-// 	// 1. 绑定请求参数
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{
-// 			"success": false,
-// 			"error":   "请求参数错误: " + err.Error(),
-// 		})
-// 		return
-// 	}
-
-// 	// 2. 验证会话
-// 	var session models.Session
-// 	result := db.Where("id = ? AND user_id = ? AND deleted = ?",
-// 		req.SessionID, req.UserID, false).First(&session)
-
-// 	if result.Error != nil {
-// 		c.JSON(http.StatusNotFound, gin.H{
-// 			"success": false,
-// 			"error":   "会话不存在或无权限访问",
-// 		})
-// 		return
-// 	}
-
-// 	// 3. 查找历史消息
-// 	var historyMessages []models.Message
-// 	db.Where("conversation_id = ? AND deleted = ?", req.SessionID, false).
-// 		Order("created_at ASC").
-// 		Find(&historyMessages)
-
-// 	// 4. 构建Prompt
-// 	prompt := buildPrompt(historyMessages, req.Query)
-
-// 	// 5. 保存用户消息
-// 	userMsg := models.Message{
-// 		ID:             uuid.NewString(),
-// 		ConversationID: req.SessionID,
-// 		Role:           "user",
-// 		Type:           "text",
-// 		Content:        req.Query,
-// 		CreatedAt:      time.Now(),
-// 		UpdatedAt:      time.Now(),
-// 		Metadata:       `{"source": "web_dialog_stream"}`,
-// 	}
-// 	db.Create(&userMsg)
-
-// 	// 6. 设置SSE响应头
-// 	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-// 	c.Writer.Header().Set("Cache-Control", "no-cache")
-// 	c.Writer.Header().Set("Connection", "keep-alive")
-// 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-// 	// 确保响应编码为UTF-8
-// 	// c.Writer.Header().Set("Content-Encoding", "identity") // 不要压缩
-
-// 	// 7. 创建响应通道
-// 	flusher, ok := c.Writer.(http.Flusher)
-// 	if !ok {
-// 		c.JSON(http.StatusInternalServerError, gin.H{
-// 			"error": "Streaming not supported",
-// 		})
-// 		return
-// 	}
-
-// 	// 8. 发送开始事件
-// 	startEvent := SSEMessage{
-// 		Event: "start",
-// 		Data: gin.H{
-// 			"message_id": uuid.NewString(),
-// 			"session_id": req.SessionID,
-// 			"timestamp":  time.Now().Unix(),
-// 			"user_query": req.Query,
-// 		},
-// 	}
-// 	fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n",
-// 		startEvent.Event,
-// 		toJSON(startEvent.Data))
-// 	flusher.Flush()
-
-// 	// 9. 模拟流式生成回复
-// 	chunks := mockLLMStream(prompt)
-// 	log.Println("output chunks: ", chunks)
-// 	assistantMsgID := uuid.NewString()
-
-// 	fullResponse := ""
-// 	for i, chunk := range chunks {
-// 		// 模拟生成延迟
-// 		time.Sleep(time.Duration(200) * time.Millisecond)
-
-// 		// 构建当前响应
-// 		fullResponse += chunk
-
-// 		chunkEvent := SSEMessage{
-// 			Event: "chunk",
-// 			Data: gin.H{
-// 				"chunk_id":    fmt.Sprintf("chunk_%d", i),
-// 				"content":     chunk,
-// 				"is_final":    i == len(chunks)-1,
-// 				"accumulated": strings.TrimSpace(fullResponse),
-// 			},
-// 		}
-
-// 		fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n",
-// 			chunkEvent.Event,
-// 			toJSON(chunkEvent.Data))
-// 		flusher.Flush()
-// 	}
-
-// 	// 10. 发送完成事件
-// 	completionEvent := SSEMessage{
-// 		Event: "complete",
-// 		Data: gin.H{
-// 			"message_id":   assistantMsgID,
-// 			"full_content": strings.TrimSpace(fullResponse),
-// 			"total_chunks": len(chunks),
-// 			"timestamp":    time.Now().Unix(),
-// 		},
-// 	}
-// 	fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n",
-// 		completionEvent.Event,
-// 		toJSON(completionEvent.Data))
-// 	flusher.Flush()
-
-// 	// 11. 保存完整的助手回复到数据库
-// 	assistantMsg := models.Message{
-// 		ID:             assistantMsgID,
-// 		ConversationID: req.SessionID,
-// 		Role:           "assistant",
-// 		Type:           "text",
-// 		Content:        strings.TrimSpace(fullResponse),
-// 		CreatedAt:      time.Now(),
-// 		UpdatedAt:      time.Now(),
-// 		Metadata:       `{"model": "mock_llm", "stream": true, "chunks": ` + fmt.Sprint(len(chunks)) + `}`,
-// 	}
-// 	db.Create(&assistantMsg)
-// 	log.Println("插入消息 assistantMsg: ", assistantMsg)
-
-// 	// 12. 更新会话时间
-// 	db.Model(&session).Update("updated_at", time.Now())
-// }
-
 // 辅助函数：将数据转为JSON字符串
 func toJSON(data interface{}) string {
 	jsonBytes, _ := json.Marshal(data)
@@ -415,7 +275,6 @@ func handleDialog(c *gin.Context) {
 		ID:        uuid.NewString(),
 		SessionID: req.SessionID,
 		Role:      "user",
-		Type:      "text",
 		Content:   req.Query,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -429,7 +288,6 @@ func handleDialog(c *gin.Context) {
 		ID:        assistantMsgID,
 		SessionID: req.SessionID,
 		Role:      "assistant",
-		Type:      "text",
 		Content:   reply,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -484,11 +342,11 @@ func buildPrompt(history []models.Message, currentQuery string) string {
 
 // 创建新会话的接口-与第一个问题绑定
 type CreateSessionRequest struct {
-	UserID    string `json:"user_id" binding:"required"`
-	Title     string `json:"title" binding:"required"`
-	ProjectID string `json:"project_id"`
-	Query     string `json:"query"`
-	File      string `json:"file"`
+	UserID    string        `json:"user_id" binding:"required"`
+	Title     string        `json:"title" binding:"required"`
+	ProjectID string        `json:"project_id"`
+	Query     string        `json:"query"`
+	File      []models.File `json:"file"`
 }
 
 func handleCreateSession(c *gin.Context) {
@@ -612,51 +470,83 @@ func main() {
 	// 初始化
 	initDB()
 
+	service := my_service.NewSessionService(db)
+
+	ws := new(restful.WebService)
+	ws.
+		Path("/api/v1/applet/ai").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
+
+	//创建一个项目，指定标题
+	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler(service)).
+		Doc("Create a new project").
+		Param(ws.BodyParameter("request", "CreateProjectRequest").DataType("my_requests.CreateProjectRequest")).
+		Returns(201, "Created", my_response.CreateProjectResponse{}).
+		Returns(400, "Bad Request", nil))
+
+	// 定义路由
+	ws.Route(ws.GET("/projects/{projectId}/sessions").To(my_handler.ListSessionsHandler(service)).
+		Doc("List all sessions under a project").
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
+		Returns(200, "OK", my_response.ListSessionsResponse{}).
+		Returns(401, "Unauthorized", nil).
+		Returns(403, "Forbidden", nil).
+		Returns(404, "Not Found", nil))
+
+	restful.Add(ws)
+	restful.EnableTracing(true)
+
+	http.ListenAndServe(":8080", nil)
+
 	// 创建Gin引擎
-	r := gin.Default()
+	// r := gin.Default()
 
-	// 添加中间件
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+	// // 添加中间件
+	// r.Use(gin.Logger())
+	// r.Use(gin.Recovery())
 
-	// 添加CORS支持（前端调用需要）
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	// // 添加CORS支持（前端调用需要）
+	// r.Use(func(c *gin.Context) {
+	// 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	// 	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	// 	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
+	// 	if c.Request.Method == "OPTIONS" {
+	// 		c.AbortWithStatus(204)
+	// 		return
+	// 	}
 
-		c.Next()
-	})
+	// 	c.Next()
+	// })
 
-	// 注册路由
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now()})
-	})
+	// // 注册路由
+	// r.GET("/health", func(c *gin.Context) {
+	// 	c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now()})
+	// })
 
-	// 流式对话路由
-	r.POST("/api/dialog/stream", handleDialogStreamWithResumeApi) // 支持断点续传的流式对话接口
-	r.GET("/api/stream/status", handleStreamStatus)               // 查询某个会话状态接口
+	// // 流式对话路由
+	// r.POST("/api/dialog/stream", handleDialogStreamWithResumeApi) // 支持断点续传的流式对话接口
+	// r.GET("/api/stream/status", handleStreamStatus)               // 查询某个会话状态接口
 
-	r.POST("/api/session/create", handleCreateSession)
-	r.GET("/api/session/query", handleGetHistory)
-	r.GET("/api/session/queryAll", handleGetHistory) // 兼容旧接口
+	// r.POST("/api/session/create", handleCreateSession)
+	// r.GET("/api/session/query", handleGetHistory)
+	// r.GET("/api/session/queryAll", handleGetHistory) // 兼容旧接口
 
-	// 启动服务器
-	port := ":8080"
-	log.Printf("服务器启动在 http://localhost%s", port)
-	log.Println("可用接口:")
-	log.Println("  GET  /health              - 服务器健康检查")
-	log.Println("  POST /api/dialog          - 对话接口")
-	log.Println("  POST /api/session/create  - 创建新会话")
-	log.Println("  GET  /api/session/query   - 获取会话历史")
-	log.Println("  GET  /api/session/queryAll   - 获取所有会话历史")
+	// // 项目相关接口
+	// r.GET("/api/project/query", handleGetProject)
 
-	if err := r.Run(port); err != nil {
-		log.Fatal("服务器启动失败:", err)
-	}
+	// // 启动服务器
+	// port := ":8080"
+	// log.Printf("服务器启动在 http://localhost%s", port)
+	// log.Println("可用接口:")
+	// log.Println("  GET  /health              - 服务器健康检查")
+	// log.Println("  POST /api/dialog          - 对话接口")
+	// log.Println("  POST /api/session/create  - 创建新会话")
+	// log.Println("  GET  /api/session/query   - 获取会话历史")
+	// log.Println("  GET  /api/session/queryAll   - 获取所有会话历史")
+
+	// if err := r.Run(port); err != nil {
+	// 	log.Fatal("服务器启动失败:", err)
+	// }
 }

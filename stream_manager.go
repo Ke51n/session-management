@@ -5,14 +5,12 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // StreamState 流式生成状态
 type StreamState struct {
-	sessionID    string                      `json:"message_id"`    // 消息ID
 	SessionID    string                      `json:"session_id"`    // 会话ID
+	MessageID    string                      `json:"message_id"`    // 消息ID
 	Query        string                      `json:"query"`         // 用户查询
 	File         string                      `json:"file"`          // 文件路径
 	FullResponse string                      `json:"full_response"` // 完整响应（逐步构建）
@@ -56,9 +54,7 @@ func (sm *StreamManager) GetOrCreateStream(sessionID, query string) *StreamState
 	}
 
 	// 创建新流
-	messageID := uuid.NewString()
 	stream := &StreamState{
-		sessionID:    messageID,
 		SessionID:    sessionID,
 		Query:        query,
 		File:         "",

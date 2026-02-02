@@ -104,7 +104,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 	// 告知客户端连接已建立，并返回会话和消息ID信息
 	// is_resume 字段指示当前是否为续传模式
 	sendSSEEvent(c, flusher, "connected", gin.H{
-		"message_id": stream.sessionID,
+		"message_id": stream.MessageID,
 		"session_id": stream.SessionID,
 		"timestamp":  time.Now().Unix(),
 	})
@@ -117,7 +117,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 
 		// 发送 start 事件，告知客户端生成开始
 		sendSSEEvent(c, flusher, "start", gin.H{
-			"message_id": stream.sessionID,
+			"message_id": stream.MessageID,
 			"query":      stream.Query,
 			"timestamp":  time.Now().Unix(),
 		})
@@ -126,7 +126,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 		// 发送 resume 事件，包含已生成的完整历史内容 (history_output)
 		// 客户端可以直接展示 history_output，然后等待后续 chunk
 		sendSSEEvent(c, flusher, "resume", gin.H{
-			"message_id":     stream.sessionID,
+			"message_id":     stream.MessageID,
 			"total_chunks":   len(stream.Chunks),
 			"timestamp":      time.Now().Unix(),
 			"history_output": stream.Chunks, // 把已经生成的内容返回（包括前端中断时候的内容）
@@ -145,7 +145,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 			if !ok {
 				// 通道关闭，通常意味着流被管理器强制关闭或发生错误
 				sendSSEEvent(c, flusher, "complete", gin.H{
-					"message_id":   stream.sessionID,
+					"message_id":   stream.MessageID,
 					"full_content": stream.FullResponse,
 					"timestamp":    time.Now().Unix(),
 					"ok":           false,
@@ -156,7 +156,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 			// 处理结束标志
 			if chunk.IsFinal {
 				sendSSEEvent(c, flusher, "complete", gin.H{
-					"message_id":   stream.sessionID,
+					"message_id":   stream.MessageID,
 					"full_content": stream.FullResponse,
 					"timestamp":    time.Now().Unix(),
 					"chunk_id":     chunk.ChunkID,
@@ -169,10 +169,11 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 
 			// 发送普通的数据分块 (chunk)
 			sendSSEEvent(c, flusher, "chunk", gin.H{
-				"chunk_id":  chunk.ChunkID,
-				"content":   chunk.Content,
-				"is_final":  false,
-				"timestamp": time.Now().Unix(),
+				"message_id": stream.MessageID,
+				"chunk_id":   chunk.ChunkID,
+				"content":    chunk.Content,
+				"is_final":   false,
+				"timestamp":  time.Now().Unix(),
 			})
 
 		// 监听客户端连接状态
@@ -217,7 +218,7 @@ func generateStreamResponse(stream *StreamState, req DialogRequest) {
 		time.Sleep(200 * time.Millisecond) // 模拟生成延迟
 
 		// 保存到流状态
-		streamManager.AddChunk(stream.sessionID, chunk)
+		streamManager.AddChunk(stream.SessionID, chunk)
 
 		// // 更新已发送索引（需要在锁外进行广播）
 		// stream.mu.Lock()
@@ -242,21 +243,20 @@ func generateStreamResponse(stream *StreamState, req DialogRequest) {
 	}
 
 	// 标记流完成，
-	defer streamManager.CompleteStream(stream.sessionID)
+	defer streamManager.CompleteStream(stream.SessionID)
 
 	// 保存助手回复到数据库
 	assistantMsg := models.Message{
-		ID:        stream.sessionID, // 使用相同的messageID
+		ID:        stream.MessageID, // 使用相同的messageID
 		SessionID: req.SessionID,
 		Role:      "assistant",
 		Content:   stream.FullResponse,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Metadata: map[string]interface{}{
-			"model":      "mock_llm",
-			"stream":     true,
-			"resumable":  true,
-			"version_id": stream.sessionID,
+			"model":     "mock_llm",
+			"stream":    true,
+			"resumable": true,
 		},
 	}
 	db.Create(&assistantMsg)
@@ -282,7 +282,7 @@ func handleStreamStatus(c *gin.Context) {
 	for _, stream := range streamManager.streams {
 		if sessionID != "" && stream.SessionID == sessionID {
 			result = append(result, gin.H{
-				"message_id":   stream.sessionID,
+				"message_id":   stream.MessageID,
 				"session_id":   stream.SessionID,
 				"query":        stream.Query,
 				"is_completed": stream.IsCompleted,

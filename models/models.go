@@ -105,10 +105,6 @@ func (m *Message) BeforeCreate(tx *gorm.DB) error {
 		m.Metadata = map[string]any{}
 	}
 
-	// 设置默认消息类型
-	if m.Type == "" {
-		m.Type = "text"
-	}
 	if m.CreatedAt.IsZero() {
 		m.CreatedAt = time.Now()
 	}
