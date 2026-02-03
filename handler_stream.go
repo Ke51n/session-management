@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"session-demo/models"
+	my_models "session-demo/models"
+	my_service "session-demo/service"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -47,8 +48,8 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 	// 2. 验证会话
 	// 检查 SessionID 是否存在，是否属于当前用户，且未被删除
 	// 如果验证失败，返回 404 错误
-	var session models.Session
-	if db.Where("id = ? AND user_id = ? AND deleted = ?",
+	var session my_models.Session
+	if my_service.My_dbservice.DB.Where("id = ? AND user_id = ? AND deleted = ?",
 		req.SessionID, req.UserID, false).First(&session).Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
 		return
@@ -188,15 +189,15 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 // 生成流式响应的协程
 func generateStreamResponse(stream *StreamState, req DialogRequest) {
 	// 查找历史消息
-	var historyMessages []models.Message
-	db.Where("conversation_id = ? AND deleted = ?", req.SessionID, false).
+	var historyMessages []my_models.Message
+	my_service.My_dbservice.DB.Where("session_id = ? AND deleted = ?", req.SessionID, false).
 		Order("created_at ASC").
 		Find(&historyMessages)
 
 	prompt := buildPrompt(historyMessages, req.Query)
 
 	// 保存用户消息到数据库
-	userMsg := models.Message{
+	userMsg := my_models.Message{
 		ID:        uuid.NewString(),
 		SessionID: req.SessionID,
 		Role:      "user",
@@ -208,7 +209,7 @@ func generateStreamResponse(stream *StreamState, req DialogRequest) {
 			"source": "new_ask",
 		},
 	}
-	db.Create(&userMsg)
+	my_service.My_dbservice.DB.Create(&userMsg)
 
 	// 生成chunks
 	chunks := mockLLMStream(prompt)
@@ -246,7 +247,7 @@ func generateStreamResponse(stream *StreamState, req DialogRequest) {
 	defer streamManager.CompleteStream(stream.SessionID)
 
 	// 保存助手回复到数据库
-	assistantMsg := models.Message{
+	assistantMsg := my_models.Message{
 		ID:        stream.MessageID, // 使用相同的messageID
 		SessionID: req.SessionID,
 		Role:      "assistant",
@@ -259,10 +260,10 @@ func generateStreamResponse(stream *StreamState, req DialogRequest) {
 			"resumable": true,
 		},
 	}
-	db.Create(&assistantMsg)
+	my_service.My_dbservice.DB.Create(&assistantMsg)
 
 	// 更新会话时间
-	db.Model(&models.Session{ID: req.SessionID}).Update("updated_at", time.Now())
+	my_service.My_dbservice.DB.Model(&my_models.Session{ID: req.SessionID}).Update("updated_at", time.Now())
 }
 
 // 查询流状态接口

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"session-demo/models"
+	my_models "session-demo/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/driver/mysql"
 
 	"encoding/json"
 
@@ -20,7 +20,6 @@ import (
 
 	my_handler "session-demo/handler"
 	my_response "session-demo/response"
-	my_service "session-demo/service"
 
 	"github.com/emicklei/go-restful/v3"
 )
@@ -57,89 +56,89 @@ func mockLLMCall(prompt string) string {
 	return responses[int(time.Now().Unix())%len(responses)]
 }
 
-// 初始化数据库
-func initDB() {
+// // 初始化数据库
+// func initDB() {
 
-	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
-	var err error
-	GlobalDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+// 	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
+// 	var err error
+// 	GlobalDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
-	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
+// 	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
 
-	// var err error
-	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
-	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal("数据库连接失败:", err)
-	}
+// 	// var err error
+// 	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
+// 	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+// 	if err != nil {
+// 		log.Fatal("数据库连接失败:", err)
+// 	}
 
-	// 自动迁移表结构
-	err = GlobalDB.AutoMigrate(&models.Session{}, &models.Message{}, &models.Project{})
-	if err != nil {
-		log.Fatal("数据库迁移失败:", err)
-	}
+// 	// 自动迁移表结构
+// 	err = GlobalDB.AutoMigrate(&models.Session{}, &models.Message{}, &models.Project{})
+// 	if err != nil {
+// 		log.Fatal("数据库迁移失败:", err)
+// 	}
 
-	// 创建一些测试数据
-	// createTestData()
+// 	// 创建一些测试数据
+// 	// createTestData()
 
-	log.Println("数据库初始化完成")
-}
+// 	log.Println("数据库初始化完成")
+// }
 
 // 创建测试数据
-func createTestData() {
-	sessionID := uuid.NewString()
+// func createTestData() {
+// 	sessionID := uuid.NewString()
 
-	// 创建测试会话
-	session := models.Session{
-		ID:        sessionID,
-		ProjectID: "demo-project",
-		UserID:    "test-user",
-		Title:     "测试对话",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Source:    "user_create",
-	}
-	GlobalDB.Create(&session)
-	log.Printf("创建会话: %s", sessionID)
+// 	// 创建测试会话
+// 	session := models.Session{
+// 		ID:        sessionID,
+// 		ProjectID: "demo-project",
+// 		UserID:    "test-user",
+// 		Title:     "测试对话",
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 		Source:    "user_create",
+// 	}
+// 	GlobalDB.Create(&session)
+// 	log.Printf("创建会话: %s", sessionID)
 
-	// 创建历史消息
-	messages := []models.Message{
-		{
-			ID:        uuid.NewString(),
-			SessionID: sessionID,
-			Role:      "user",
-			Content:   "你好，我想了解天气情况",
-			CreatedAt: time.Now().Add(-2 * time.Hour),
-			UpdatedAt: time.Now().Add(-2 * time.Hour),
-		},
-		{
-			ID:        uuid.NewString(),
-			SessionID: sessionID,
-			Role:      "assistant",
-			Content:   "今天天气晴朗，气温25度，适合外出活动。",
-			CreatedAt: time.Now().Add(-1 * time.Hour),
-			UpdatedAt: time.Now().Add(-1 * time.Hour),
-		},
-		{
-			ID:        uuid.NewString(),
-			SessionID: sessionID,
-			Role:      "user",
-			Content:   "那明天呢？",
-			CreatedAt: time.Now().Add(-30 * time.Minute),
-			UpdatedAt: time.Now().Add(-30 * time.Minute),
-		},
-	}
+// 	// 创建历史消息
+// 	messages := []models.Message{
+// 		{
+// 			ID:        uuid.NewString(),
+// 			SessionID: sessionID,
+// 			Role:      "user",
+// 			Content:   "你好，我想了解天气情况",
+// 			CreatedAt: time.Now().Add(-2 * time.Hour),
+// 			UpdatedAt: time.Now().Add(-2 * time.Hour),
+// 		},
+// 		{
+// 			ID:        uuid.NewString(),
+// 			SessionID: sessionID,
+// 			Role:      "assistant",
+// 			Content:   "今天天气晴朗，气温25度，适合外出活动。",
+// 			CreatedAt: time.Now().Add(-1 * time.Hour),
+// 			UpdatedAt: time.Now().Add(-1 * time.Hour),
+// 		},
+// 		{
+// 			ID:        uuid.NewString(),
+// 			SessionID: sessionID,
+// 			Role:      "user",
+// 			Content:   "那明天呢？",
+// 			CreatedAt: time.Now().Add(-30 * time.Minute),
+// 			UpdatedAt: time.Now().Add(-30 * time.Minute),
+// 		},
+// 	}
 
-	// for _, msg := range messages {
-	// 	db.Create(&msg)
-	// }
-	// ⚡ 批量插入（一条 SQL）
-	result := GlobalDB.Create(&messages)
-	if result.Error != nil {
-		panic(result.Error)
-	}
-	log.Printf("成功插入 %d 条消息记录\n", result.RowsAffected)
-}
+// 	// for _, msg := range messages {
+// 	// 	db.Create(&msg)
+// 	// }
+// 	// ⚡ 批量插入（一条 SQL）
+// 	result := GlobalDB.Create(&messages)
+// 	if result.Error != nil {
+// 		panic(result.Error)
+// 	}
+// 	log.Printf("成功插入 %d 条消息记录\n", result.RowsAffected)
+// }
 
 // 新增 SSE 事件类型
 // 删除原来的 DialogResponse，因为 SSE 会分块发送
@@ -150,12 +149,12 @@ type SSEMessage struct {
 
 // 请求和响应结构体
 type DialogRequest struct {
-	SessionID string        `json:"session_id" binding:"required"`
-	Query     string        `json:"query" binding:"required"`
-	UserID    string        `json:"user_id" binding:"required"`
-	MessageOP string        `json:"message_op"` //TODO:
-	MessageID string        `json:"message_id"`
-	Files     []models.File `json:"file"`
+	SessionID string           `json:"session_id" binding:"required"`
+	Query     string           `json:"query" binding:"required"`
+	UserID    string           `json:"user_id" binding:"required"`
+	MessageOP string           `json:"message_op"` //TODO:
+	MessageID string           `json:"message_id"`
+	Files     []my_models.File `json:"file"`
 }
 
 type DialogResponse struct {
@@ -473,9 +472,7 @@ func handleGetHistory(c *gin.Context) {
 
 func main() {
 	// 初始化
-	initDB()
-
-	service := my_service.NewSessionService(GlobalDB)
+	// initDB()
 
 	ws := new(restful.WebService)
 	ws.
@@ -485,20 +482,35 @@ func main() {
 
 	//项目
 	//创建一个项目，指定标题
-	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler(service)).
+	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler()).
 		Doc("Create a new project").
 		Param(ws.BodyParameter("request", "CreateProjectReq").DataType("my_requests.CreateProjectReq")).
 		Returns(201, "Created", my_response.CreateProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
+	//更新项目标题
+	ws.Route(ws.PATCH("/projects/{projectId}").To(my_handler.UpdateProjectHandler()).
+		Doc("Update a project title").
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
+		Param(ws.BodyParameter("request", "UpdateProjectReq").DataType("my_requests.UpdateProjectReq")).
+		Returns(200, "OK", my_response.UpdateProjectResponse{}).
+		Returns(400, "Bad Request", nil))
+
 	//查询所有项目
-	ws.Route(ws.GET("/projects").To(my_handler.ListProjectsHandler(service)).
+	ws.Route(ws.GET("/projects").To(my_handler.ListProjectsHandler()).
 		Doc("List all projects").
 		Returns(200, "OK", my_response.ListProjectsResponse{}).
 		Returns(400, "Bad Request", nil))
 
-	// 定义路由
-	ws.Route(ws.GET("/projects/{projectId}/sessions").To(my_handler.ListSessionsHandler(service)).
+	//删除一个项目
+	ws.Route(ws.DELETE("/projects/{projectId}").To(my_handler.DeleteProjectHandler()).
+		Doc("Delete a project").
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
+		Returns(204, "No Content", nil).
+		Returns(400, "Bad Request", nil))
+
+	// 查询某个项目下的所有会话
+	ws.Route(ws.GET("/projects/{projectId}/sessions").To(my_handler.ListSessionsHandler()).
 		Doc("List all sessions under a project").
 		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
 		Returns(200, "OK", my_response.ListSessionsResponse{}).
