@@ -11,3 +11,7 @@ type ListSessionsResponse struct {
 type CreateProjectResponse struct {
 	models.Project
 }
+type ListProjectsResponse struct {
+	Data  []models.Project `json:"projects"`
+	Total int              `json:"total"`
+}

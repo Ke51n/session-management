@@ -4,25 +4,66 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"session-demo/models"
 	model "session-demo/models"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 // 会话服务
-type SessionService struct {
+type DBService struct {
 	DB *gorm.DB
 }
 
 // 创建会话服务
-func NewSessionService(db *gorm.DB) *SessionService {
-	return &SessionService{DB: db}
+func NewSessionService(db *gorm.DB) *DBService {
+	return &DBService{DB: db}
+}
+
+var my_dbservice *DBService
+
+// 初始化
+
+func init() {
+	initDB()
+	log.Println("SessionService initialized")
+}
+
+// 初始化数据库
+func initDB() {
+
+	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
+
+	// var err error
+	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
+	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal("数据库连接失败:", err)
+	}
+
+	// 自动迁移表结构
+	err = db.AutoMigrate(&models.Session{}, &models.Message{})
+	if err != nil {
+		log.Fatal("数据库迁移失败:", err)
+	}
+
+	// 创建一些测试数据
+	// createTestData()
+
+	log.Println("数据库初始化完成1")
+
+	my_dbservice = &DBService{DB: db}
 }
 
 // buildContextFromRootInMemory 从内存构建从 root 到 target 的上下文
-func (s *SessionService) buildContextFromRootInMemory(sessionID, targetMessageID string) ([]*model.Message, error) {
+func (s *DBService) buildContextFromRootInMemory(sessionID, targetMessageID string) ([]*model.Message, error) {
 	// 加载会话所有消息到内存
 	var allMessages []model.Message
 	if err := s.DB.Where("session_id = ?", sessionID).Find(&allMessages).Error; err != nil {
@@ -71,7 +112,7 @@ func (s *SessionService) buildContextFromRootInMemory(sessionID, targetMessageID
 }
 
 // CreateMessage 创建新消息
-func (s *SessionService) CreateMessage(sessionID string, parentID *string, role, content string) (*model.Message, error) {
+func (s *DBService) CreateMessage(sessionID string, parentID *string, role, content string) (*model.Message, error) {
 	msg := &model.Message{
 		ID:        uuid.New().String(),
 		SessionID: sessionID,
@@ -88,14 +129,14 @@ func (s *SessionService) CreateMessage(sessionID string, parentID *string, role,
 }
 
 // GetSessionMessages 获取会话所有消息（用于前端渲染树）
-func (s *SessionService) GetSessionMessages(convID string) ([]model.Message, error) {
+func (s *DBService) GetSessionMessages(convID string) ([]model.Message, error) {
 	var msgs []model.Message
 	err := s.DB.Where("session_id = ?", convID).Order("created_at ASC").Find(&msgs).Error
 	return msgs, err
 }
 
 // Regenerate 重新生成回答
-func (s *SessionService) Regenerate(userID, sessionID, parentMessageID string) (*model.Message, error) {
+func (s *DBService) Regenerate(userID, sessionID, parentMessageID string) (*model.Message, error) {
 	// 验证会话归属
 	var conv model.Session
 	if err := s.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
@@ -138,7 +179,7 @@ func (s *SessionService) Regenerate(userID, sessionID, parentMessageID string) (
 }
 
 // EditAndResend 编辑并重发
-func (s *SessionService) EditAndResend(userID, sessionID, targetMessageID, newContent string) (*model.Message, error) {
+func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent string) (*model.Message, error) {
 	var conv model.Session
 	if err := s.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
 		return nil, errors.New("session not found")
@@ -178,15 +219,37 @@ func (s *SessionService) EditAndResend(userID, sessionID, targetMessageID, newCo
 	return newAssistantMsg, nil
 }
 
-func (s *SessionService) ListByProject(userID, projectID string) ([]model.Session, error) {
+// ListByProject 列出某个项目下的所有会话
+func (s *DBService) ListByProject(userID, projectID string) ([]model.Session, error) {
 	// TODO: 查询数据库
 	// 示例：SELECT * FROM sessions WHERE project_id = ? AND user_id = ?
 	if projectID == "invalid" {
 		return nil, errors.New("project not found")
 	}
+	//  查询数据库
+	var sessions []model.Session
+	log.Println("Listing sessions for userID:", userID, "projectID:", projectID)
+	err := s.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+
 	// 模拟返回数据
-	return []model.Session{
-		{ID: "sess-1", Title: "需求讨论", CreatedAt: time.Date(2026, 1, 30, 10, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 1, 30, 10, 5, 0, 0, time.UTC)},
-		{ID: "sess-2", Title: "技术方案", CreatedAt: time.Date(2026, 1, 29, 15, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 1, 29, 15, 10, 0, 0, time.UTC)},
-	}, nil
+	// return []model.Session{
+	// 	{ID: "sess-1", Title: "需求讨论", CreatedAt: time.Date(2026, 1, 30, 10, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 1, 30, 10, 5, 0, 0, time.UTC)},
+	// 	{ID: "sess-2", Title: "技术方案", CreatedAt: time.Date(2026, 1, 29, 15, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 1, 29, 15, 10, 0, 0, time.UTC)},
+	// }, nil
+}
+
+// ListProjects 列出某个用户的所有项目
+func (s *DBService) ListProjects(userID string) ([]model.Project, error) {
+	// 查询数据库
+	var projects []model.Project
+	log.Println("Listing projects for userID:", userID)
+	err := s.DB.Where("user_id = ?", userID).Find(&projects).Error
+	if err != nil {
+		return nil, err
+	}
+	return projects, nil
 }

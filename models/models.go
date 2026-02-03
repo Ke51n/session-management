@@ -12,11 +12,11 @@ type User struct {
 }
 
 type Project struct {
-	ID        string         `gorm:"primaryKey"`
-	UserID    string         `gorm:"not null;index"`
-	Title     string         `gorm:"not null;default:'新项目'"`
-	CreatedAt time.Time      `gorm:"not null"`
-	UpdatedAt time.Time      `gorm:"not null"`
+	ID        uint64 `gorm:"primaryKey;autoIncrement"`
+	UserID    string `gorm:"not null;index"`
+	Title     string `gorm:"not null;default:'新项目'"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 	Deleted   bool           `gorm:"not null;default:false"`    //是否删除
 	Version   int64          `gorm:"not null;default:1"`        // 更新次数
 	Extension map[string]any `gorm:"type:text;serializer:json"` // 扩展字段

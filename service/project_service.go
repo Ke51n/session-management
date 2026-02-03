@@ -1,9 +1,13 @@
 package service
 
-import "session-demo/models"
+import (
+	"log"
+	"session-demo/models"
+)
 
-//创建一个项目
-func (s *SessionService) CreateProject(title string, userID string) (*models.Project, error) {
+// 创建一个项目
+func (s *DBService) CreateProject(title string, userID string) (*models.Project, error) {
+	log.Println("Creating project with title:", title, "for userID:", userID)
 	project := &models.Project{
 		Title:  title,
 		UserID: userID,

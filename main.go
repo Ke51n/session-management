@@ -26,7 +26,7 @@ import (
 )
 
 // 全局数据库实例
-var db *gorm.DB
+var GlobalDB *gorm.DB
 
 // 模拟LLM响应函数
 func mockLLMCall(prompt string) string {
@@ -59,17 +59,22 @@ func mockLLMCall(prompt string) string {
 
 // 初始化数据库
 func initDB() {
-	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
 
+	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
 	var err error
+	GlobalDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
+
+	// var err error
 	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("数据库连接失败:", err)
 	}
 
 	// 自动迁移表结构
-	err = db.AutoMigrate(&models.Session{}, &models.Message{})
+	err = GlobalDB.AutoMigrate(&models.Session{}, &models.Message{}, &models.Project{})
 	if err != nil {
 		log.Fatal("数据库迁移失败:", err)
 	}
@@ -94,7 +99,7 @@ func createTestData() {
 		UpdatedAt: time.Now(),
 		Source:    "user_create",
 	}
-	db.Create(&session)
+	GlobalDB.Create(&session)
 	log.Printf("创建会话: %s", sessionID)
 
 	// 创建历史消息
@@ -129,7 +134,7 @@ func createTestData() {
 	// 	db.Create(&msg)
 	// }
 	// ⚡ 批量插入（一条 SQL）
-	result := db.Create(&messages)
+	result := GlobalDB.Create(&messages)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -246,7 +251,7 @@ func handleDialog(c *gin.Context) {
 
 	// 2. 验证会话是否存在且属于该用户
 	var session models.Session
-	result := db.Where("id = ? AND user_id = ? AND deleted = ?",
+	result := GlobalDB.Where("id = ? AND user_id = ? AND deleted = ?",
 		req.SessionID, req.UserID, false).First(&session)
 
 	if result.Error != nil {
@@ -259,7 +264,7 @@ func handleDialog(c *gin.Context) {
 
 	// 3. 查找历史消息（按时间排序）
 	var historyMessages []models.Message
-	db.Where("conversation_id = ? AND deleted = ?", req.SessionID, false).
+	GlobalDB.Where("session_id = ? AND deleted = ?", req.SessionID, false).
 		Order("created_at ASC").
 		Find(&historyMessages)
 
@@ -280,7 +285,7 @@ func handleDialog(c *gin.Context) {
 		UpdatedAt: time.Now(),
 		Metadata:  map[string]interface{}{"source": "web_dialog"},
 	}
-	db.Create(&userMsg)
+	GlobalDB.Create(&userMsg)
 
 	// 7. 保存助手回复到数据库
 	assistantMsgID := uuid.NewString()
@@ -296,10 +301,10 @@ func handleDialog(c *gin.Context) {
 			"tokens": len(reply),
 		},
 	}
-	db.Create(&assistantMsg)
+	GlobalDB.Create(&assistantMsg)
 
 	// 8. 更新会话的更新时间
-	db.Model(&session).Update("updated_at", time.Now())
+	GlobalDB.Model(&session).Update("updated_at", time.Now())
 
 	// 9. 返回响应
 	resp := DialogResponse{
@@ -349,47 +354,47 @@ type CreateSessionRequest struct {
 	File      []models.File `json:"file"`
 }
 
-func handleCreateSession(c *gin.Context) {
-	var req CreateSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+// func handleCreateSession(c *gin.Context) {
+// 	var req CreateSessionRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
 
-	if req.ProjectID == "" {
-		req.ProjectID = "system"
-	}
+// 	if req.ProjectID == "" {
+// 		req.ProjectID = "system"
+// 	}
 
-	session := models.Session{
-		ID:        uuid.NewString(),
-		ProjectID: req.ProjectID,
-		UserID:    req.UserID,
-		Title:     req.Title,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Source:    "user_create",
-	}
+// 	session := models.Session{
+// 		ID:        uuid.NewString(),
+// 		ProjectID: req.ProjectID,
+// 		UserID:    req.UserID,
+// 		Title:     req.Title,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 		Source:    "user_create",
+// 	}
 
-	db.Create(&session)
+// 	db.Create(&session)
 
-	//转发到流式接口
-	dialogReq := DialogRequest{
-		UserID:    req.UserID,
-		SessionID: session.ID,
-		Query:     req.Query,
-		Files:     req.File,
-		MessageID: "",       //上一条消息id，第一次对话为空
-		MessageOP: "create", //操作类型，create表示创建新对话
-	}
-	handleDialogStreamWithResumeInner(c, dialogReq)
+// 	//转发到流式接口
+// 	dialogReq := DialogRequest{
+// 		UserID:    req.UserID,
+// 		SessionID: session.ID,
+// 		Query:     req.Query,
+// 		Files:     req.File,
+// 		MessageID: "",       //上一条消息id，第一次对话为空
+// 		MessageOP: "create", //操作类型，create表示创建新对话
+// 	}
+// 	handleDialogStreamWithResumeInner(c, dialogReq)
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"info":       "会话创建成功",
-		"session_id": session.ID,
-		"title":      session.Title,
-	})
-}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"success":    true,
+// 		"info":       "会话创建成功",
+// 		"session_id": session.ID,
+// 		"title":      session.Title,
+// 	})
+// }
 
 // 获取会话历史
 func handleGetHistory(c *gin.Context) {
@@ -402,13 +407,13 @@ func handleGetHistory(c *gin.Context) {
 	if sessionID != "" {
 		// 验证会话权限
 		var session models.Session
-		if db.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error != nil {
+		if GlobalDB.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
 			return
 		}
 
 		var messages []models.Message
-		db.Where("conversation_id = ? AND deleted = ?", sessionID, false).
+		GlobalDB.Where("session_id = ? AND deleted = ?", sessionID, false).
 			Order("created_at ASC").
 			Find(&messages)
 
@@ -421,7 +426,7 @@ func handleGetHistory(c *gin.Context) {
 	} else {
 		// 验证会话权限
 		var sessions []models.Session
-		if db.Where(" user_id = ? AND deleted = ?", userID, false).Order("updated_at DESC").Find(&sessions).Error != nil {
+		if GlobalDB.Where(" user_id = ? AND deleted = ?", userID, false).Order("updated_at DESC").Find(&sessions).Error != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "查询会话失败"})
 			return
 		}
@@ -433,7 +438,7 @@ func handleGetHistory(c *gin.Context) {
 			var messages []models.Message
 
 			// 查询该会话的所有消息（按时间排序）
-			db.Where("conversation_id = ? AND deleted = ?", session.ID, false).
+			GlobalDB.Where("session_id = ? AND deleted = ?", session.ID, false).
 				Order("created_at ASC").
 				Find(&messages)
 
@@ -470,7 +475,7 @@ func main() {
 	// 初始化
 	initDB()
 
-	service := my_service.NewSessionService(db)
+	service := my_service.NewSessionService(GlobalDB)
 
 	ws := new(restful.WebService)
 	ws.
@@ -478,11 +483,18 @@ func main() {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
+	//项目
 	//创建一个项目，指定标题
 	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler(service)).
 		Doc("Create a new project").
-		Param(ws.BodyParameter("request", "CreateProjectRequest").DataType("my_requests.CreateProjectRequest")).
+		Param(ws.BodyParameter("request", "CreateProjectReq").DataType("my_requests.CreateProjectReq")).
 		Returns(201, "Created", my_response.CreateProjectResponse{}).
+		Returns(400, "Bad Request", nil))
+
+	//查询所有项目
+	ws.Route(ws.GET("/projects").To(my_handler.ListProjectsHandler(service)).
+		Doc("List all projects").
+		Returns(200, "OK", my_response.ListProjectsResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	// 定义路由
