@@ -189,3 +189,23 @@ func ListByProject(userID, projectID string) ([]my_models.Session, error) {
 	return sessions, nil
 
 }
+
+// 创建会话
+func CreateSession(userID string, projectID *uint64, title string) (*my_models.Session, error) {
+	session := &my_models.Session{
+		ID:        uuid.New().String(),
+		ProjectID: projectID,
+		UserID:    userID,
+		Title:     title,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Deleted:   false,
+	}
+	if err := My_dbservice.DB.Create(session).Error; err != nil {
+		return nil, err
+	}
+	log.Println("Created session:", session)
+	return session, nil
+}
+
+// 这是服务层：建一个会话并对话，sse流式响应模型回答，要求流式响应，sse方式

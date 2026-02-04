@@ -481,7 +481,7 @@ func main() {
 		Produces(restful.MIME_JSON)
 
 	//项目
-	//创建一个项目，指定标题
+	//创建一个项目，指定标题（可选）
 	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler()).
 		Doc("Create a new project").
 		Param(ws.BodyParameter("request", "CreateProjectReq").DataType("my_requests.CreateProjectReq")).
@@ -517,6 +517,32 @@ func main() {
 		Returns(401, "Unauthorized", nil).
 		Returns(403, "Forbidden", nil).
 		Returns(404, "Not Found", nil))
+
+	//会话
+	//创建一个会话并对话，sse流式响应
+	ws.Route(ws.POST("/sessions/stream").
+		To(my_handler.CreateSessionStreamChatHandler).
+		Doc("Create session and chat (SSE)").
+		Consumes(restful.MIME_JSON).
+		Produces("text/event-stream").
+		Param(ws.BodyParameter("request", "CreateSessionAndChatReq").
+			DataType("my_requests.CreateSessionAndChatReq")).
+		Returns(200, "OK", nil))
+
+	//查询某个会话所有消息
+	ws.Route(ws.GET("/sessions/{sessionId}/messages").To(my_handler.ListMessagesBySessionHandler).
+		Doc("Get session history").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Returns(200, "OK", my_response.ListMessagesResponse{}).
+		Returns(400, "Bad Request", nil))
+
+	//获取会话历史
+	// ws.Route(ws.GET("/sessions/history").To(my_handler.GetHistoryHandler()).
+	// 	Doc("Get session history").
+	// 	Param(ws.QueryParameter("session_id", "Session ID").DataType("string")).
+	// 	Param(ws.QueryParameter("user_id", "User ID").DataType("string")).
+	// 	Returns(200, "OK", nil).
+	// 	Returns(400, "Bad Request", nil))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)

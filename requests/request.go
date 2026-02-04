@@ -1,5 +1,9 @@
 package requests
 
+import (
+	my_models "session-demo/models"
+)
+
 // ========== 请求结构 ==========
 //
 // 创建项目请求结构
@@ -27,4 +31,11 @@ type UpdateProjectReq struct {
 // 删除项目请求结构
 type DeleteProjectReq struct {
 	ProjectID string `json:"project_id"`
+}
+
+// 创建会话并对话
+type CreateSessionAndChatReq struct {
+	ProjectID *uint64          `json:"project_id"`
+	Query     string           `json:"query"`
+	Files     []my_models.File `json:"files"`
 }

@@ -28,3 +28,7 @@ type UpdateProjectResponse struct {
 type DeleteProjectResponse struct {
 	Message string `json:"message"`
 }
+type ListMessagesResponse struct {
+	Data  []models.Message `json:"data"`
+	Total int              `json:"total"`
+}
