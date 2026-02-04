@@ -20,9 +20,9 @@ func CreateProject(title string, userID string) (*my_models.Project, error) {
 }
 
 // 更新项目标题
-func UpdateProjectTitle(projectID string, newTitle string) (*my_models.Project, error) {
+func UpdateProjectTitle(projectID string, newTitle string, userID string) (*my_models.Project, error) {
 	var project my_models.Project
-	if err := My_dbservice.DB.First(&project, "id = ?", projectID).Error; err != nil {
+	if err := My_dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
 		return nil, err
 	}
 	project.Title = newTitle
@@ -53,4 +53,14 @@ func DeleteProject(projectID string, userID string) error {
 	}
 	log.Println("Deleted project with ID:", projectID)
 	return nil
+}
+
+// GetProjectById 获取项目详情
+func GetProjectById(userID string, projectID *uint64) (*my_models.Project, error) {
+	var project my_models.Project
+	if err := My_dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
+		return nil, err
+	}
+	log.Println("Found project:", project)
+	return &project, nil
 }

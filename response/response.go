@@ -32,3 +32,11 @@ type ListMessagesResponse struct {
 	Data  []models.Message `json:"data"`
 	Total int              `json:"total"`
 }
+
+// MoveSessionToProjectResponse 移动会话到项目响应结构
+type MoveSessionToProjectResponse struct {
+	Success   bool    `json:"success"`
+	Message   string  `json:"message"`
+	ProjectID *uint64 `json:"project_id"`
+	SessionID string  `json:"session_id"`
+}

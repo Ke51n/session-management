@@ -8,8 +8,7 @@ import (
 //
 // 创建项目请求结构
 type CreateProjectReq struct {
-	Title  string `json:"title"`
-	UserID string `json:"user_id"`
+	Title string `json:"title"`
 }
 
 // 创建会话请求结构
@@ -38,4 +37,8 @@ type CreateSessionAndChatReq struct {
 	ProjectID *uint64          `json:"project_id"`
 	Query     string           `json:"query"`
 	Files     []my_models.File `json:"files"`
+}
+
+type MoveSessionToProjectReq struct {
+	ProjectID *uint64 `json:"project_id"`
 }

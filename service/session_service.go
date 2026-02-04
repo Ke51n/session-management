@@ -174,9 +174,9 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 }
 
 // ListByProject 列出某个项目下的所有会话
-func ListByProject(userID, projectID string) ([]my_models.Session, error) {
+func ListByProject(userID string, projectID *uint64) ([]my_models.Session, error) {
 	// TODO: 查询数据库
-	if projectID == "invalid" {
+	if projectID == nil {
 		return nil, errors.New("project not found")
 	}
 	//  查询数据库
@@ -208,4 +208,32 @@ func CreateSession(userID string, projectID *uint64, title string) (*my_models.S
 	return session, nil
 }
 
-// 这是服务层：建一个会话并对话，sse流式响应模型回答，要求流式响应，sse方式
+// MoveSessionToProject 移动会话到项目
+func MoveSessionToProject(userID, sessionID string, projectID *uint64) error {
+	// 验证会话归属
+	var conv my_models.Session
+	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+		return errors.New("session not found or access denied")
+	}
+
+	// 更新会话项目ID
+	conv.ProjectID = projectID
+	conv.UpdatedAt = time.Now()
+	if err := My_dbservice.DB.Save(&conv).Error; err != nil {
+		return err
+	}
+	log.Println("Moved session:", sessionID, "to project:", projectID)
+	return nil
+}
+
+// ListSessionsNotInProject 列出不在任何项目中的会话
+func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
+	// TODO: 查询数据库
+	var sessions []my_models.Session
+	log.Println("Listing sessions not in project for userID:", userID)
+	err := My_dbservice.DB.Where("project_id IS NULL AND user_id = ?", userID).Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}

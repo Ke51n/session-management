@@ -536,13 +536,19 @@ func main() {
 		Returns(200, "OK", my_response.ListMessagesResponse{}).
 		Returns(400, "Bad Request", nil))
 
-	//获取会话历史
-	// ws.Route(ws.GET("/sessions/history").To(my_handler.GetHistoryHandler()).
-	// 	Doc("Get session history").
-	// 	Param(ws.QueryParameter("session_id", "Session ID").DataType("string")).
-	// 	Param(ws.QueryParameter("user_id", "User ID").DataType("string")).
-	// 	Returns(200, "OK", nil).
-	// 	Returns(400, "Bad Request", nil))
+	// 获取不在项目里的会话
+	ws.Route(ws.GET("/sessions/unassigned").To(my_handler.ListSessionsNotInProjectHandler).
+		Doc("List all sessions not in project").
+		Returns(200, "OK", my_response.ListSessionsResponse{}).
+		Returns(400, "Bad Request", nil))
+
+	//移动一个会话到某个指定项目
+	ws.Route(ws.PATCH("/sessions/{sessionId}/move").To(my_handler.MoveSessionToProjectHandler).
+		Doc("Move a session to a project").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.BodyParameter("request", "MoveSessionToProjectReq").DataType("my_requests.MoveSessionToProjectReq")).
+		Returns(200, "OK", my_response.MoveSessionToProjectResponse{}).
+		Returns(400, "Bad Request", nil))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)

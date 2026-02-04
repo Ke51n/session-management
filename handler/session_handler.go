@@ -166,3 +166,81 @@ func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) 
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)
 }
+
+func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Response) {
+
+	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
+	token := req.HeaderParameter("TOKEN")
+	log.Println("extracted user_id from header:", token)
+	req.SetAttribute("user_id", token)
+
+	v := req.Attribute("user_id")
+	userID, ok := v.(string)
+	if !ok || userID == "" {
+		log.Println("user_id is missing or invalid, userID:", userID)
+		resp.WriteErrorString(400, "uid is required")
+		return
+	}
+
+	// 调用服务层
+	sessions, err := my_service.ListSessionsNotInProject(userID)
+	if err != nil {
+		log.Println("failed to list sessions not in project:", err)
+		resp.WriteErrorString(http.StatusInternalServerError, "failed to list sessions not in project")
+		return
+	}
+
+	// 构造响应
+	result := my_response.ListSessionsResponse{
+		Data:  sessions,
+		Total: len(sessions),
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
+// / MoveSessionToProjectHandler 移动一个会话到某个指定项目
+func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
+
+	// 从请求头中获取用户ID
+	userID := getUserIdFromHeader(req, resp)
+	if userID == "" {
+		return
+	}
+
+	sessionID := req.PathParameter("sessionId")
+	var reqData my_requests.MoveSessionToProjectReq
+	if err := req.ReadEntity(&reqData); err != nil {
+		log.Println("failed to read request body:", err)
+		resp.WriteErrorString(400, "invalid request body")
+		return
+	}
+
+	// 判断项目和用户是否存在
+	if reqData.ProjectID != nil {
+		_, err := my_service.GetProjectById(userID, reqData.ProjectID)
+		if err != nil {
+			log.Println("project not found or user not authorized:", err)
+			resp.WriteErrorString(http.StatusNotFound, "project not found or user not authorized")
+			return
+		}
+	}
+
+	// 调用服务层
+	err := my_service.MoveSessionToProject(userID, sessionID, reqData.ProjectID)
+	if err != nil {
+		log.Println("failed to move session to project:", err)
+		resp.WriteErrorString(http.StatusInternalServerError, "failed to move session to project")
+		return
+	}
+
+	// 构造响应
+	result := my_response.MoveSessionToProjectResponse{
+		Success:   true,
+		Message:   "session moved to project successfully",
+		ProjectID: reqData.ProjectID,
+		SessionID: sessionID,
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}
