@@ -244,3 +244,36 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)
 }
+
+func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
+
+	// 从请求头中获取用户ID
+	userID := getUserIdFromHeader(req, resp)
+	if userID == "" {
+		return
+	}
+
+	sessionID := req.PathParameter("sessionId")
+	var reqData my_requests.UpdateSessionReq
+	if err := req.ReadEntity(&reqData); err != nil {
+		log.Println("failed to read request body:", err)
+		resp.WriteErrorString(400, "invalid request body")
+		return
+	}
+
+	// 调用服务层
+	err := my_service.UpdateSession(userID, sessionID, reqData.Title)
+	if err != nil {
+		log.Println("failed to update session:", err)
+		resp.WriteErrorString(http.StatusInternalServerError, "failed to update session")
+		return
+	}
+
+	// 构造响应
+	result := my_response.UpdateSessionResponse{
+		Success:   true,
+		SessionId: sessionID,
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}

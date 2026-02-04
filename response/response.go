@@ -10,7 +10,8 @@ type ListSessionsResponse struct {
 
 // 创建项目响应结构
 type CreateProjectResponse struct {
-	models.Project
+	Success   bool   `json:"success"`
+	ProjectID uint64 `json:"project_id"`
 }
 
 // 查询所有项目响应结构
@@ -21,12 +22,13 @@ type ListProjectsResponse struct {
 
 // 更新项目标题响应结构
 type UpdateProjectResponse struct {
-	models.Project
+	Success   bool   `json:"success"`
+	ProjectID uint64 `json:"project_id"`
 }
 
 // 删除项目响应结构
 type DeleteProjectResponse struct {
-	Message string `json:"message"`
+	Success bool `json:"success"`
 }
 type ListMessagesResponse struct {
 	Data  []models.Message `json:"data"`
@@ -39,4 +41,9 @@ type MoveSessionToProjectResponse struct {
 	Message   string  `json:"message"`
 	ProjectID *uint64 `json:"project_id"`
 	SessionID string  `json:"session_id"`
+}
+
+type UpdateSessionResponse struct {
+	Success   bool   `json:"success"`
+	SessionId string `json:"session_id"`
 }

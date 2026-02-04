@@ -42,3 +42,8 @@ type CreateSessionAndChatReq struct {
 type MoveSessionToProjectReq struct {
 	ProjectID *uint64 `json:"project_id"`
 }
+
+// 更新会话标题请求结构
+type UpdateSessionReq struct {
+	Title string `json:"title"`
+}

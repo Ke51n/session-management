@@ -519,6 +519,14 @@ func main() {
 		Returns(404, "Not Found", nil))
 
 	//会话
+	//修改会话标题
+	ws.Route(ws.PATCH("/sessions/{sessionId}").To(my_handler.UpdateSessionHandler).
+		Doc("Update a session title").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.BodyParameter("request", "UpdateSessionReq").DataType("my_requests.UpdateSessionReq")).
+		Returns(200, "OK", my_response.UpdateSessionResponse{}).
+		Returns(400, "Bad Request", nil))
+
 	//创建一个会话并对话，sse流式响应
 	ws.Route(ws.POST("/sessions/stream").
 		To(my_handler.CreateSessionStreamChatHandler).

@@ -237,3 +237,20 @@ func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
 	}
 	return sessions, nil
 }
+
+func UpdateSession(userID, sessionID string, title string) error {
+	// 验证会话归属
+	var conv my_models.Session
+	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+		return errors.New("session not found or access denied")
+	}
+
+	// 更新会话标题
+	conv.Title = title
+	conv.UpdatedAt = time.Now()
+	if err := My_dbservice.DB.Save(&conv).Error; err != nil {
+		return err
+	}
+	log.Println("Updated session:", sessionID, "title:", title)
+	return nil
+}
