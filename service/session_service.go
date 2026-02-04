@@ -158,7 +158,7 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 	if err != nil {
 		return nil, err
 	}
-	//TODO:
+	//todo
 	_ = context
 
 	// TODO: 调用大模型
@@ -228,7 +228,7 @@ func MoveSessionToProject(userID, sessionID string, projectID *uint64) error {
 
 // ListSessionsNotInProject 列出不在任何项目中的会话
 func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
-	// TODO: 查询数据库
+	// 查询数据库
 	var sessions []my_models.Session
 	log.Println("Listing sessions not in project for userID:", userID)
 	err := My_dbservice.DB.Where("project_id IS NULL AND user_id = ?", userID).Find(&sessions).Error

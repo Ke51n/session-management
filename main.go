@@ -152,7 +152,7 @@ type DialogRequest struct {
 	SessionID string           `json:"session_id" binding:"required"`
 	Query     string           `json:"query" binding:"required"`
 	UserID    string           `json:"user_id" binding:"required"`
-	MessageOP string           `json:"message_op"` //TODO:
+	MessageOP string           `json:"message_op"` //todo
 	MessageID string           `json:"message_id"`
 	Files     []my_models.File `json:"file"`
 }
