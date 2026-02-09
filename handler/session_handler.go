@@ -50,7 +50,7 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 	log.Printf("Received CreateSessionAndChatReq: %+v, userID: %s\n", reqData, userID)
 
 	// 2.0 可选：如果请求中包含 project_id，验证项目是否存在且属于用户
-	if reqData.ProjectID != nil {
+	if reqData.ProjectID != "" {
 		var project my_models.Project
 		if my_service.My_dbservice.DB.Where("id = ? AND user_id = ? AND deleted = ?",
 			reqData.ProjectID, userID, false).First(&project).Error != nil {
@@ -97,26 +97,26 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 	assistantMsgID := uuid.NewString()
 	steps := []my_models.StepNode{
 		{
-			Type:    "thought",
-			Content: "我需要先思考一下。",
+			Type: "thought",
+			Text: "我需要先思考一下。",
 		},
 		{
-			Type:    "plan",
-			Content: "我计划先检索相关信息，然后生成回答。",
+			Type: "plan",
+			Text: "我计划先检索相关信息，然后生成回答。",
 		},
 		{
-			Type:    "tool_call",
-			Name:    "get_weather",
-			Content: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
+			Type: "tool_call",
+			Name: "get_weather",
+			Text: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
 		},
 		{
-			Type:    "tool_return",
-			Name:    "get_weather",
-			Content: "天气信息：上海当前温度为15度，多云。",
+			Type: "tool_return",
+			Name: "get_weather",
+			Text: "天气信息：上海当前温度为15度，多云。",
 		},
 		{
-			Type:    "thought",
-			Content: "我已经有了足够的信息，可以生成回答了。",
+			Type: "thought",
+			Text: "我已经有了足够的信息，可以生成回答了。",
 		},
 	}
 	my_service.CreateAndSaveMessage(assistantMsgID, session.ID, &userMsgID, "assistant", steps, nil, reply, len(reply), false, nil, nil)
@@ -217,7 +217,7 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 	}
 
 	// 判断项目和用户是否存在
-	if reqData.ProjectID != nil {
+	if reqData.ProjectID != "" {
 		_, err := my_service.GetProjectById(userID, reqData.ProjectID)
 		if err != nil {
 			log.Println("project not found or user not authorized:", err)

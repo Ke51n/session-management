@@ -191,7 +191,7 @@ func ListByProject(userID string, projectID *uint64) ([]my_models.Session, error
 }
 
 // 创建会话
-func CreateSession(userID string, projectID *uint64, title string) (*my_models.Session, error) {
+func CreateSession(userID string, projectID string, title string) (*my_models.Session, error) {
 	session := &my_models.Session{
 		ID:        uuid.New().String(),
 		ProjectID: projectID,
@@ -209,7 +209,7 @@ func CreateSession(userID string, projectID *uint64, title string) (*my_models.S
 }
 
 // MoveSessionToProject 移动会话到项目
-func MoveSessionToProject(userID, sessionID string, projectID *uint64) error {
+func MoveSessionToProject(userID, sessionID string, projectID string) error {
 	// 验证会话归属
 	var conv my_models.Session
 	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {

@@ -18,9 +18,15 @@ type JSONMap map[string]any // 避免重复定义
 
 // Project 项目表
 type Project struct {
-	ID        *uint64   `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    string    `gorm:"not null;index" json:"user_id"`
-	Title     string    `gorm:"not null;default:'新项目'" json:"title"`
+	ID     string `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID string `gorm:"not null;index" json:"user_id"`
+	Title  string `gorm:"not null;default:'新项目'" json:"title"`
+
+	CustomInstruction string   `gorm:"type:longtext" json:"custom_instruction"` // 自定义指令
+	Files             FileList `gorm:"type:longtext" json:"files"`              // 文件列表
+	ToolsConfig       JSONMap  `gorm:"type:longtext" json:"tools_config"`       // 工具配置
+	ModelSvcsConfig   JSONMap  `gorm:"type:longtext" json:"model_svcs_config"`  // 模型服务配置
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Deleted   bool      `gorm:"not null;default:false" json:"deleted"`      //是否删除
@@ -32,7 +38,7 @@ type Project struct {
 // Session 会话表
 type Session struct {
 	ID        string    `gorm:"type:char(36);primaryKey" json:"id"`
-	ProjectID *uint64   `gorm:"column:project_id;index" json:"project_id"` // 项目ID（关联项目）
+	ProjectID string    `gorm:"column:project_id;index" json:"project_id"` // 项目ID（关联项目）
 	UserID    string    `gorm:"type:varchar(64);not null;index" json:"user_id"`
 	Title     string    `gorm:"type:varchar(255);not null" json:"title"`
 	CreatedAt time.Time `gorm:"not null" json:"created_at"`
@@ -46,13 +52,16 @@ type Session struct {
 
 // Message 消息表
 type Message struct {
-	ID         string    `gorm:"type:char(36);primaryKey" json:"id"`
-	SessionID  string    `gorm:"type:varchar(64);not null;index" json:"session_id"` // 所属会话ID
-	ParentID   *string   `gorm:"index:idx_parent" json:"parent_id"`                 //父消息id
-	Role       string    `gorm:"type:varchar(20);not null" json:"role"`             // "user" 或 "assistant"
-	Steps      StepList  `gorm:"type:longtext" json:"steps"`                        // ← 关键：用自定义类型 + longtext
-	Files      FileList  `gorm:"type:longtext" json:"files"`                        // 建议用 json 而非 text（PostgreSQL）或 longtext（MySQL）
-	Content    string    `gorm:"type:longtext;not null" json:"content"`
+	ID        string  `gorm:"type:char(36);primaryKey" json:"id"`
+	SessionID string  `gorm:"type:varchar(64);not null;index" json:"session_id"` // 所属会话ID
+	ParentID  *string `gorm:"index:idx_parent" json:"parent_id"`                 //父消息id
+	Role      string  `gorm:"type:varchar(20);not null" json:"role"`             // "user" 或 "assistant"
+	Content   string  `gorm:"type:longtext;not null" json:"content"`
+	Status    string  `gorm:"type:varchar(20);not null" json:"status"` // 消息状态，如"FINISHED"、"PROCESSING"、"INTERRUPTED"
+
+	Steps StepList `gorm:"type:longtext" json:"steps"` // ← 关键：用自定义类型 + longtext
+	Files FileList `gorm:"type:longtext" json:"files"` // 建议用 json 而非 text（PostgreSQL）或 longtext（MySQL）
+
 	TokenCount int       `gorm:"default:0"` // 建议添加：消息token数统计
 	CreatedAt  time.Time `gorm:"not null" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"not null" json:"updated_at"`
@@ -63,9 +72,15 @@ type Message struct {
 
 // StepNode 步骤节点，表示助手的思考、工具调用等
 type StepNode struct {
+	ID       string  `json:"id"`
 	Type     string  `json:"type"` // plan、tool_call、tool_return、thought 等
 	Name     string  `json:"name"`
-	Content  string  `json:"content"`
+	Text     string  `json:"text"`
+	ToolName string  `json:"tool_name"`
+	ToolType string  `json:"tool_type"`
+	Target   string  `json:"target"`
+	Input    JSONMap `json:"input"`
+	Output   string  `json:"output"`
 	Metadata JSONMap `gorm:"type:text;serializer:json" json:"metadata"` //其他信息
 }
 
@@ -91,7 +106,7 @@ func (s *FileList) Scan(value any) error {
 	case string:
 		return json.Unmarshal([]byte(v), s)
 	default:
-		return errors.New("cannot scan StepList from unsupported type")
+		return errors.New("cannot scan FileList from unsupported type")
 	}
 }
 func (s StepList) Value() (driver.Value, error) {
@@ -118,12 +133,18 @@ func (s *StepList) Scan(value any) error {
 }
 
 type File struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	URL       string  `json:"url"`
-	Status    string  `json:"status"`
-	Type      string  `json:"type"` // 文件类型（例如："image"、"document"）
-	Extension JSONMap `gorm:"type:text;serializer:json" json:"extension"`
+	ID                 string  `json:"id"`
+	Uid                string  `json:"uid"`
+	Name               string  `json:"name"`
+	FileName           string  `json:"fileName"`
+	URL                string  `json:"url"`
+	Status             string  `json:"status"`
+	Percent            uint8   `json:"percent"`
+	Type               string  `json:"type"`               // 文件类型（例如："image"、"document"）
+	Size               uint64  `json:"size"`               // 文件大小（字节）
+	WebkitRelativePath string  `json:"webkitRelativePath"` // 文件在浏览器中的相对路径
+	MergeData          JSONMap `json:"mergeData"`          // 合并数据（例如：合并后的图片路径）
+	Extension          JSONMap `gorm:"type:text;serializer:json" json:"extension"`
 }
 
 // ToolCall 助手调用工具的记录

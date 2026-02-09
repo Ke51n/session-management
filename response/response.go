@@ -11,7 +11,7 @@ type ListSessionsResponse struct {
 // 创建项目响应结构
 type CreateProjectResponse struct {
 	Success   bool   `json:"success"`
-	ProjectID uint64 `json:"project_id"`
+	ProjectID string `json:"project_id"`
 }
 
 // 查询所有项目响应结构
@@ -23,7 +23,7 @@ type ListProjectsResponse struct {
 // 更新项目标题响应结构
 type UpdateProjectResponse struct {
 	Success   bool   `json:"success"`
-	ProjectID uint64 `json:"project_id"`
+	ProjectID string `json:"project_id"`
 }
 
 // 删除项目响应结构
@@ -37,10 +37,10 @@ type ListMessagesResponse struct {
 
 // MoveSessionToProjectResponse 移动会话到项目响应结构
 type MoveSessionToProjectResponse struct {
-	Success   bool    `json:"success"`
-	Message   string  `json:"message"`
-	ProjectID *uint64 `json:"project_id"`
-	SessionID string  `json:"session_id"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	ProjectID string `json:"project_id"`
+	SessionID string `json:"session_id"`
 }
 
 type UpdateSessionResponse struct {

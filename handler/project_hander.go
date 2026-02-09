@@ -53,7 +53,7 @@ func CreateProjectHandler() restful.RouteFunction {
 		// 构造响应
 		result := response.CreateProjectResponse{
 			Success:   true,
-			ProjectID: *project.ID,
+			ProjectID: project.ID,
 		}
 		resp.WriteHeaderAndEntity(http.StatusCreated, result)
 	}
@@ -85,7 +85,7 @@ func UpdateProjectHandler() restful.RouteFunction {
 		// 构造响应
 		result := response.UpdateProjectResponse{
 			Success:   true,
-			ProjectID: *updatedProject.ID,
+			ProjectID: updatedProject.ID,
 		}
 		resp.WriteHeaderAndEntity(http.StatusOK, result)
 	}

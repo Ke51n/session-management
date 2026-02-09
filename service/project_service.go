@@ -3,12 +3,15 @@ package service
 import (
 	"log"
 	my_models "session-demo/models"
+
+	"github.com/google/uuid"
 )
 
 // 创建一个项目
 func CreateProject(title string, userID string) (*my_models.Project, error) {
 	log.Println("Creating project with title:", title, "for userID:", userID)
 	project := &my_models.Project{
+		ID:     uuid.New().String(),
 		Title:  title,
 		UserID: userID,
 	}
@@ -56,7 +59,7 @@ func DeleteProject(projectID string, userID string) error {
 }
 
 // GetProjectById 获取项目详情
-func GetProjectById(userID string, projectID *uint64) (*my_models.Project, error) {
+func GetProjectById(userID string, projectID string) (*my_models.Project, error) {
 	var project my_models.Project
 	if err := My_dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
 		return nil, err

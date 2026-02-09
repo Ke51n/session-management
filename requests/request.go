@@ -34,13 +34,13 @@ type DeleteProjectReq struct {
 
 // 创建会话并对话
 type CreateSessionAndChatReq struct {
-	ProjectID *uint64          `json:"project_id"`
+	ProjectID string           `json:"project_id"`
 	Query     string           `json:"query"`
 	Files     []my_models.File `json:"files"`
 }
 
 type MoveSessionToProjectReq struct {
-	ProjectID *uint64 `json:"project_id"`
+	ProjectID string `json:"project_id"`
 }
 
 // 更新会话标题请求结构
