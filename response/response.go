@@ -4,26 +4,25 @@ import "session-demo/models"
 
 // 查询某个项目下的所有会话响应结构
 type ListSessionsResponse struct {
-	Data  []models.Session `json:"data"`
-	Total int              `json:"total"`
+	Data    []models.Session `json:"data"`
+	Success bool             `json:"success"`
 }
 
 // 创建项目响应结构
-type CreateProjectResponse struct {
+type CreateOrEditProjectResponse struct {
 	Success   bool   `json:"success"`
 	ProjectID string `json:"project_id"`
 }
 
 // 查询所有项目响应结构
 type ListProjectsResponse struct {
-	Data  []models.Project `json:"projects"`
-	Total int              `json:"total"`
+	Data    []models.Project `json:"data"`
+	Success bool             `json:"success"`
 }
 
 // 更新项目标题响应结构
 type UpdateProjectResponse struct {
-	Success   bool   `json:"success"`
-	ProjectID string `json:"project_id"`
+	Success bool `json:"success"`
 }
 
 // 删除项目响应结构
@@ -31,19 +30,15 @@ type DeleteProjectResponse struct {
 	Success bool `json:"success"`
 }
 type ListMessagesResponse struct {
-	Data  []models.Message `json:"data"`
-	Total int              `json:"total"`
+	Data    []models.Message `json:"data"`
+	Success bool             `json:"success"`
 }
 
 // MoveSessionToProjectResponse 移动会话到项目响应结构
 type MoveSessionToProjectResponse struct {
-	Success   bool   `json:"success"`
-	Message   string `json:"message"`
-	ProjectID string `json:"project_id"`
-	SessionID string `json:"session_id"`
+	Success bool `json:"success"`
 }
 
-type UpdateSessionResponse struct {
-	Success   bool   `json:"success"`
-	SessionId string `json:"session_id"`
+type UpdateSessionTitleResponse struct {
+	Success bool `json:"success"`
 }

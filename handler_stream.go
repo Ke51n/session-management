@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	my_models "session-demo/models"
 	my_service "session-demo/service"
@@ -16,7 +15,7 @@ import (
 )
 
 // 辅助函数：发送SSE事件
-func sendSSEEvent(c *gin.Context, flusher http.Flusher, event string, data interface{}) {
+func sendSSEEvent(c *gin.Context, flusher http.Flusher, event string, data any) {
 	jsonData, _ := json.Marshal(data)
 
 	// 正确的SSE格式：event: <name>\ndata: <json>\n\n
@@ -114,7 +113,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 	if len(stream.Chunks) == 0 {
 		// CASE A: 新任务
 		// 启动一个新的 goroutine 来生成 LLM 响应
-		go generateStreamResponse(stream, req)
+		// go generateStreamResponse(stream, req)
 
 		// 发送 start 事件，告知客户端生成开始
 		sendSSEEvent(c, flusher, "start", gin.H{
@@ -186,85 +185,85 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 	}
 }
 
-// 生成流式响应的协程
-func generateStreamResponse(stream *StreamState, req DialogRequest) {
-	// 查找历史消息
-	var historyMessages []my_models.Message
-	my_service.My_dbservice.DB.Where("session_id = ? AND deleted = ?", req.SessionID, false).
-		Order("created_at ASC").
-		Find(&historyMessages)
+// // 生成流式响应的协程
+// func generateStreamResponse(stream *StreamState, req DialogRequest) {
+// 	// 查找历史消息
+// 	var historyMessages []my_models.Message
+// 	my_service.My_dbservice.DB.Where("session_id = ? AND deleted = ?", req.SessionID, false).
+// 		Order("created_at ASC").
+// 		Find(&historyMessages)
 
-	prompt := buildPrompt(historyMessages, req.Query)
+// 	prompt := buildPrompt(historyMessages, req.Query)
 
-	// 保存用户消息到数据库
-	userMsg := my_models.Message{
-		ID:        uuid.NewString(),
-		SessionID: req.SessionID,
-		Role:      "user",
-		Content:   req.Query,
-		Files:     req.Files,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Metadata: map[string]interface{}{
-			"source": "new_ask",
-		},
-	}
-	my_service.My_dbservice.DB.Create(&userMsg)
+// 	// 保存用户消息到数据库
+// 	userMsg := my_models.Message{
+// 		ID:        uuid.NewString(),
+// 		SessionID: req.SessionID,
+// 		Role:      "user",
+// 		Content:   req.Query,
+// 		Files:     req.Files,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 		Metadata: map[string]any{
+// 			"source": "new_ask",
+// 		},
+// 	}
+// 	my_service.My_dbservice.DB.Create(&userMsg)
 
-	// 生成chunks
-	chunks := mockLLMStream(prompt)
+// 	// 生成chunks
+// 	chunks := mockLLMStream(prompt)
 
-	// 逐步发送chunks
-	for i, chunk := range chunks {
-		time.Sleep(200 * time.Millisecond) // 模拟生成延迟
+// 	// 逐步发送chunks
+// 	for i, chunk := range chunks {
+// 		time.Sleep(200 * time.Millisecond) // 模拟生成延迟
 
-		// 保存到流状态
-		streamManager.AddChunk(stream.SessionID, chunk)
+// 		// 保存到流状态
+// 		streamManager.AddChunk(stream.SessionID, chunk)
 
-		// // 更新已发送索引（需要在锁外进行广播）
-		// stream.mu.Lock()
-		// stream.SentIndex += 1
-		// stream.mu.Unlock()
-		// 广播给所有客户端
-		stream.mu.RLock()
-		for _, clientChan := range stream.Clients {
-			select {
-			case clientChan <- StreamChunk{
-				ChunkID: i,
-				Content: chunk,
-				IsFinal: i == len(chunks)-1,
-			}:
-			default:
-				log.Println("Client channel is full, skipping")
-				// 客户端可能已断开，跳过
-			}
-		}
+// 		// // 更新已发送索引（需要在锁外进行广播）
+// 		// stream.mu.Lock()
+// 		// stream.SentIndex += 1
+// 		// stream.mu.Unlock()
+// 		// 广播给所有客户端
+// 		stream.mu.RLock()
+// 		for _, clientChan := range stream.Clients {
+// 			select {
+// 			case clientChan <- StreamChunk{
+// 				ChunkID: i,
+// 				Content: chunk,
+// 				IsFinal: i == len(chunks)-1,
+// 			}:
+// 			default:
+// 				log.Println("Client channel is full, skipping")
+// 				// 客户端可能已断开，跳过
+// 			}
+// 		}
 
-		stream.mu.RUnlock()
-	}
+// 		stream.mu.RUnlock()
+// 	}
 
-	// 标记流完成，
-	defer streamManager.CompleteStream(stream.SessionID)
+// 	// 标记流完成，
+// 	defer streamManager.CompleteStream(stream.SessionID)
 
-	// 保存助手回复到数据库
-	assistantMsg := my_models.Message{
-		ID:        stream.MessageID, // 使用相同的messageID
-		SessionID: req.SessionID,
-		Role:      "assistant",
-		Content:   stream.FullResponse,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Metadata: map[string]interface{}{
-			"model":     "mock_llm",
-			"stream":    true,
-			"resumable": true,
-		},
-	}
-	my_service.My_dbservice.DB.Create(&assistantMsg)
+// 	// 保存助手回复到数据库
+// 	assistantMsg := my_models.Message{
+// 		ID:        stream.MessageID, // 使用相同的messageID
+// 		SessionID: req.SessionID,
+// 		Role:      "assistant",
+// 		Content:   stream.FullResponse,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 		Metadata: map[string]any{
+// 			"model":     "mock_llm",
+// 			"stream":    true,
+// 			"resumable": true,
+// 		},
+// 	}
+// 	my_service.My_dbservice.DB.Create(&assistantMsg)
 
-	// 更新会话时间
-	my_service.My_dbservice.DB.Model(&my_models.Session{ID: req.SessionID}).Update("updated_at", time.Now())
-}
+// 	// 更新会话时间
+// 	my_service.My_dbservice.DB.Model(&my_models.Session{ID: req.SessionID}).Update("updated_at", time.Now())
+// }
 
 // 查询流状态接口
 func handleStreamStatus(c *gin.Context) {

@@ -56,28 +56,6 @@ func mockLLMCall(prompt string) string {
 	return responses[int(time.Now().Unix())%len(responses)]
 }
 
-// // 初始化数据库
-// func initDB() {
-
-// 	dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
-// 	var err error
-// 	GlobalDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-
-// 	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
-
-// 	// var err error
-// 	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
-// 	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-// 	if err != nil {
-// 		log.Fatal("数据库连接失败:", err)
-// 	}
-
-// 	// 自动迁移表结构
-// 	err = GlobalDB.AutoMigrate(&models.Session{}, &models.Message{}, &models.Project{})
-// 	if err != nil {
-// 		log.Fatal("数据库迁移失败:", err)
-// 	}
-
 // 	// 创建一些测试数据
 // 	// createTestData()
 
@@ -143,8 +121,8 @@ func mockLLMCall(prompt string) string {
 // 新增 SSE 事件类型
 // 删除原来的 DialogResponse，因为 SSE 会分块发送
 type SSEMessage struct {
-	Event string      `json:"event"`
-	Data  interface{} `json:"data"`
+	Event string `json:"event"`
+	Data  any    `json:"data"`
 }
 
 // 请求和响应结构体
@@ -230,7 +208,7 @@ func splitByRune(text string) []string {
 }
 
 // 辅助函数：将数据转为JSON字符串
-func toJSON(data interface{}) string {
+func toJSON(data any) string {
 	jsonBytes, _ := json.Marshal(data)
 	return string(jsonBytes)
 }
@@ -282,7 +260,7 @@ func handleDialog(c *gin.Context) {
 		Content:   req.Query,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		Metadata:  map[string]interface{}{"source": "web_dialog"},
+		Metadata:  map[string]any{"source": "web_dialog"},
 	}
 	GlobalDB.Create(&userMsg)
 
@@ -295,7 +273,7 @@ func handleDialog(c *gin.Context) {
 		Content:   reply,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"model":  "mock_llm",
 			"tokens": len(reply),
 		},
@@ -471,9 +449,6 @@ func handleGetHistory(c *gin.Context) {
 }
 
 func main() {
-	// 初始化
-	// initDB()
-
 	ws := new(restful.WebService)
 	ws.
 		Path("/api/v1/applet/ai").
@@ -484,15 +459,15 @@ func main() {
 	//创建一个项目，指定标题（可选）
 	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler()).
 		Doc("Create a new project").
-		Param(ws.BodyParameter("request", "CreateProjectReq").DataType("my_requests.CreateProjectReq")).
-		Returns(201, "Created", my_response.CreateProjectResponse{}).
+		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("my_requests.CreateAndEditProjectReq")).
+		Returns(201, "Created", my_response.CreateOrEditProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
-	//更新项目标题
+	//更新项目
 	ws.Route(ws.PATCH("/projects/{projectId}").To(my_handler.UpdateProjectHandler()).
 		Doc("Update a project title").
 		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
-		Param(ws.BodyParameter("request", "UpdateProjectReq").DataType("my_requests.UpdateProjectReq")).
+		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("my_requests.CreateAndEditProjectReq")).
 		Returns(200, "OK", my_response.UpdateProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
@@ -524,7 +499,7 @@ func main() {
 		Doc("Update a session title").
 		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
 		Param(ws.BodyParameter("request", "UpdateSessionReq").DataType("my_requests.UpdateSessionReq")).
-		Returns(200, "OK", my_response.UpdateSessionResponse{}).
+		Returns(200, "OK", my_response.UpdateSessionTitleResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//创建一个会话并对话，sse流式响应
@@ -551,12 +526,23 @@ func main() {
 		Returns(400, "Bad Request", nil))
 
 	//移动一个会话到某个指定项目
-	ws.Route(ws.PATCH("/sessions/{sessionId}/move").To(my_handler.MoveSessionToProjectHandler).
+	ws.Route(ws.PUT("/sessions/{sessionId}/move").To(my_handler.MoveSessionToProjectHandler).
 		Doc("Move a session to a project").
 		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
 		Param(ws.BodyParameter("request", "MoveSessionToProjectReq").DataType("my_requests.MoveSessionToProjectReq")).
 		Returns(200, "OK", my_response.MoveSessionToProjectResponse{}).
 		Returns(400, "Bad Request", nil))
+
+	//在已有会话中对话
+	ws.Route(ws.POST("/sessions/{sessionId}/stream").
+		To(my_handler.StreamChatHandler).
+		Doc("Chat in a session (SSE)").
+		Consumes(restful.MIME_JSON).
+		Produces("text/event-stream").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.BodyParameter("request", "StreamChatReq").
+			DataType("my_requests.StreamChatReq")).
+		Returns(200, "OK", nil))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)

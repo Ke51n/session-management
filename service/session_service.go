@@ -83,9 +83,9 @@ func (s *DBService) CreateMessage(sessionID string, parentID *string, role, cont
 }
 
 // GetSessionMessages 获取会话所有消息（用于前端渲染树）
-func (s *DBService) GetSessionMessages(convID string) ([]my_models.Message, error) {
+func (s *DBService) GetSessionMessages(sessionId string) ([]my_models.Message, error) {
 	var msgs []my_models.Message
-	err := s.DB.Where("session_id = ?", convID).Order("created_at ASC").Find(&msgs).Error
+	err := s.DB.Where("session_id = ?", sessionId).Order("created_at ASC").Find(&msgs).Error
 	return msgs, err
 }
 
@@ -174,9 +174,9 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 }
 
 // ListByProject 列出某个项目下的所有会话
-func ListByProject(userID string, projectID *uint64) ([]my_models.Session, error) {
+func ListByProject(userID string, projectID string) ([]my_models.Session, error) {
 	// TODO: 查询数据库
-	if projectID == nil {
+	if projectID == "" {
 		return nil, errors.New("project not found")
 	}
 	//  查询数据库
@@ -231,13 +231,14 @@ func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
 	// 查询数据库
 	var sessions []my_models.Session
 	log.Println("Listing sessions not in project for userID:", userID)
-	err := My_dbservice.DB.Where("project_id IS NULL AND user_id = ?", userID).Find(&sessions).Error
+	err := My_dbservice.DB.Where("project_id = '' AND user_id = ?", userID).Find(&sessions).Error
 	if err != nil {
 		return nil, err
 	}
 	return sessions, nil
 }
 
+// UpdateSession 更新会话标题
 func UpdateSession(userID, sessionID string, title string) error {
 	// 验证会话归属
 	var conv my_models.Session
@@ -253,4 +254,22 @@ func UpdateSession(userID, sessionID string, title string) error {
 	}
 	log.Println("Updated session:", sessionID, "title:", title)
 	return nil
+}
+
+func QuerySession(userID, sessionID string) error {
+	// 验证会话归属
+	var conv my_models.Session
+	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+		return errors.New("session not found or access denied")
+	}
+	return nil
+}
+
+func GetSessionById(sessionID string) (*my_models.Session, error) {
+	// 验证会话归属
+	var conv my_models.Session
+	if err := My_dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
+		return nil, errors.New("session not found")
+	}
+	return &conv, nil
 }

@@ -7,6 +7,7 @@ import (
 	my_requests "session-demo/requests"
 	my_response "session-demo/response"
 	my_service "session-demo/service"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -75,27 +76,28 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 	log.Println("Saved user message id:", userMsgID)
 
 	// 4. SSE 发送 session_id
-	my_service.SendSSE(writer, flusher, "session", session.ID)
+	assistantMsgID := uuid.NewString()
+
+	my_service.SendSSE(writer, flusher, "session", map[string]any{"session_id": session.ID, "message_id": assistantMsgID})
 
 	// 5. 模拟 AI 流式回复
 	reply := "今天上天气多云，15°C，适合外出游玩！记得带上防晒用品哦！如果你有其他问题，随时告诉我。"
 
 	for _, ch := range reply {
 
-		my_service.SendSSE(writer, flusher, "message", string(ch))
+		my_service.SendSSE(writer, flusher, "message", map[string]any{"content": string(ch)})
 
 		time.Sleep(50 * time.Millisecond)
 	}
 
 	// 6. 结束标记
-	my_service.SendSSE(writer, flusher, "done", "true")
+	my_service.SendSSE(writer, flusher, "done", map[string]any{"done": "true"})
 
 	// 7. 关闭连接
 	log.Println("Completed CreateSessionStreamChatHandler for userID:", userID)
 
 	//模型消息写数据库
-	assistantMsgID := uuid.NewString()
-	steps := []my_models.StepNode{
+	var steps []my_models.StepNode = []my_models.StepNode{
 		{
 			Type: "thought",
 			Text: "我需要先思考一下。",
@@ -103,21 +105,32 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 		{
 			Type: "plan",
 			Text: "我计划先检索相关信息，然后生成回答。",
-		},
-		{
+		}}
+	if strings.Contains(reqData.Query, "天气") {
+		steps = []my_models.StepNode{
+			{
+				Type: "tool_call",
+				Name: "get_weather",
+				Text: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
+			},
+			{
+				Type: "tool_return",
+				Name: "get_weather",
+				Text: "天气信息：上海当前温度为15度，多云。",
+			},
+		}
+	}
+	if strings.Contains(reqData.Query, "苹果") {
+		steps = append(steps, my_models.StepNode{
 			Type: "tool_call",
-			Name: "get_weather",
-			Text: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
-		},
-		{
+			Name: "read_file",
+			Text: "{'id':'tool_call_1','tool':'read_file','args':{'file_path':'/path/to/apple.txt'}}",
+		})
+		steps = append(steps, my_models.StepNode{
 			Type: "tool_return",
-			Name: "get_weather",
-			Text: "天气信息：上海当前温度为15度，多云。",
-		},
-		{
-			Type: "thought",
-			Text: "我已经有了足够的信息，可以生成回答了。",
-		},
+			Name: "read_file",
+			Text: "苹果是一种红色的水果，通常用于 pies。",
+		})
 	}
 	my_service.CreateAndSaveMessage(assistantMsgID, session.ID, &userMsgID, "assistant", steps, nil, reply, len(reply), false, nil, nil)
 	log.Println("Saved assistant message id:", assistantMsgID)
@@ -160,8 +173,8 @@ func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) 
 
 	// 构造响应
 	result := my_response.ListMessagesResponse{
-		Data:  messages,
-		Total: len(messages),
+		Data:    messages,
+		Success: true,
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)
@@ -192,8 +205,8 @@ func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Respons
 
 	// 构造响应
 	result := my_response.ListSessionsResponse{
-		Data:  sessions,
-		Total: len(sessions),
+		Data:    sessions,
+		Success: true,
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)
@@ -218,10 +231,15 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	// 判断项目和用户是否存在
 	if reqData.ProjectID != "" {
-		_, err := my_service.GetProjectById(userID, reqData.ProjectID)
+		project, err := my_service.GetProjectById(reqData.ProjectID)
 		if err != nil {
 			log.Println("project not found or user not authorized:", err)
 			resp.WriteErrorString(http.StatusNotFound, "project not found or user not authorized")
+			return
+		}
+		if project.UserID != userID {
+			log.Println("user not authorized to move session to project:", project.UserID, userID)
+			resp.WriteErrorString(http.StatusForbidden, "user not authorized to move session to project")
 			return
 		}
 	}
@@ -236,10 +254,7 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	// 构造响应
 	result := my_response.MoveSessionToProjectResponse{
-		Success:   true,
-		Message:   "session moved to project successfully",
-		ProjectID: reqData.ProjectID,
-		SessionID: sessionID,
+		Success: true,
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)
@@ -270,9 +285,8 @@ func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
 	}
 
 	// 构造响应
-	result := my_response.UpdateSessionResponse{
-		Success:   true,
-		SessionId: sessionID,
+	result := my_response.UpdateSessionTitleResponse{
+		Success: true,
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, result)

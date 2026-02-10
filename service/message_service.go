@@ -8,7 +8,7 @@ import (
 // 保存一条消息到数据库
 func CreateAndSaveMessage(messageID string, sessionID string, parentID *string, role string,
 	steps []my_models.StepNode, files []my_models.File, content string, tokenCount int, deleted bool,
-	extension, metadata map[string]interface{}) error {
+	extension, metadata map[string]any) error {
 
 	msg := &my_models.Message{
 		ID:        messageID,

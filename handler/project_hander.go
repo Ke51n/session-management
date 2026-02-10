@@ -3,7 +3,6 @@ package handler
 import (
 	"log"
 	"net/http"
-	"strconv"
 
 	"session-demo/requests"
 	"session-demo/response"
@@ -32,7 +31,7 @@ func getUserIdFromHeader(req *restful.Request, resp *restful.Response) string {
 // 创建一个项目，指定标题
 func CreateProjectHandler() restful.RouteFunction {
 	return func(req *restful.Request, resp *restful.Response) {
-		var reqBody requests.CreateProjectReq
+		var reqBody requests.CreateAndEditProjectReq
 		if err := req.ReadEntity(&reqBody); err != nil {
 			resp.WriteErrorString(http.StatusBadRequest, "invalid request body")
 			return
@@ -45,13 +44,13 @@ func CreateProjectHandler() restful.RouteFunction {
 		}
 
 		// 调用服务层
-		project, err := my_service.CreateProject(reqBody.Title, userID)
+		project, err := my_service.CreateOrEditProject(reqBody.Title, reqBody.CustomInstruction, reqBody.Files, reqBody.ToolConfig, reqBody.ModelServiceConfig, userID)
 		if err != nil {
 			resp.WriteErrorString(http.StatusInternalServerError, "failed to create project")
 			return
 		}
 		// 构造响应
-		result := response.CreateProjectResponse{
+		result := response.CreateOrEditProjectResponse{
 			Success:   true,
 			ProjectID: project.ID,
 		}
@@ -63,7 +62,7 @@ func CreateProjectHandler() restful.RouteFunction {
 func UpdateProjectHandler() restful.RouteFunction {
 	return func(req *restful.Request, resp *restful.Response) {
 		projectID := req.PathParameter("projectId")
-		var reqBody requests.UpdateProjectReq
+		var reqBody requests.CreateAndEditProjectReq
 		if err := req.ReadEntity(&reqBody); err != nil {
 			resp.WriteErrorString(http.StatusBadRequest, "invalid request body")
 			return
@@ -76,7 +75,7 @@ func UpdateProjectHandler() restful.RouteFunction {
 		}
 
 		// 调用服务层
-		updatedProject, err := my_service.UpdateProjectTitle(projectID, reqBody.Title, userID)
+		_, err := my_service.UpdateProjectTitle(projectID, reqBody.Title, reqBody.CustomInstruction, reqBody.Files, reqBody.ToolConfig, reqBody.ModelServiceConfig, userID)
 		if err != nil {
 			resp.WriteErrorString(http.StatusInternalServerError, "failed to update project title")
 			return
@@ -84,8 +83,7 @@ func UpdateProjectHandler() restful.RouteFunction {
 
 		// 构造响应
 		result := response.UpdateProjectResponse{
-			Success:   true,
-			ProjectID: updatedProject.ID,
+			Success: true,
 		}
 		resp.WriteHeaderAndEntity(http.StatusOK, result)
 	}
@@ -135,8 +133,7 @@ func ListProjectsHandler() restful.RouteFunction {
 
 		// 构造响应
 		result := response.ListProjectsResponse{
-			Data:  projects,
-			Total: len(projects),
+			Data: projects,
 		}
 
 		resp.WriteHeaderAndEntity(http.StatusOK, result)
@@ -155,14 +152,8 @@ func ListSessionsHandler() restful.RouteFunction {
 		//  2. 将字符串转换为 uint64
 		// 这里的 10 表示十进制进制，64 表示 bit 大小
 		projectIDStr := req.PathParameter("projectId")
-		projectIDInt, err := strconv.ParseUint(projectIDStr, 10, 64)
-		if err != nil {
-			// 如果转换失败（例如传了 "abc" 或者负数），返回 400 错误
-			resp.WriteErrorString(http.StatusBadRequest, "Invalid project ID format")
-			return
-		}
 		// 调用服务层
-		sessions, err := my_service.ListByProject(userID, &projectIDInt)
+		sessions, err := my_service.ListByProject(userID, projectIDStr)
 		if err != nil {
 			// 根据错误类型返回不同状态码（示例简化）
 			log.Println("failed to list sessions:", err)
@@ -172,8 +163,8 @@ func ListSessionsHandler() restful.RouteFunction {
 
 		// 构造响应
 		result := response.ListSessionsResponse{
-			Data:  sessions,
-			Total: len(sessions),
+			Data:    sessions,
+			Success: true,
 		}
 
 		resp.WriteHeaderAndEntity(http.StatusOK, result)

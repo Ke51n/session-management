@@ -15,10 +15,34 @@ type User struct {
 }
 
 type JSONMap map[string]any // 避免重复定义
+// Value 实现 driver.Valuer 接口：Go → 数据库
+func (j JSONMap) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+// Scan 实现 sql.Scanner 接口：数据库 → Go
+func (j *JSONMap) Scan(value any) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, j)
+	case string:
+		return json.Unmarshal([]byte(v), j)
+	default:
+		return errors.New("unsupported scan type for JSONMap")
+	}
+}
 
 // Project 项目表
 type Project struct {
-	ID     string `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID     string `gorm:"primaryKey;type:char(36)" json:"id"`
 	UserID string `gorm:"not null;index" json:"user_id"`
 	Title  string `gorm:"not null;default:'新项目'" json:"title"`
 

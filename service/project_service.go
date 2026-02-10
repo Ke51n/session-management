@@ -8,12 +8,16 @@ import (
 )
 
 // 创建一个项目
-func CreateProject(title string, userID string) (*my_models.Project, error) {
+func CreateOrEditProject(title string, customInstruction string, files []my_models.File, toolsConfig, modelSvcsConfig my_models.JSONMap, userID string) (*my_models.Project, error) {
 	log.Println("Creating project with title:", title, "for userID:", userID)
 	project := &my_models.Project{
-		ID:     uuid.New().String(),
-		Title:  title,
-		UserID: userID,
+		ID:                uuid.New().String(),
+		Title:             title,
+		UserID:            userID,
+		CustomInstruction: customInstruction,
+		Files:             files,
+		ToolsConfig:       toolsConfig,
+		ModelSvcsConfig:   modelSvcsConfig,
 	}
 	if err := My_dbservice.DB.Create(project).Error; err != nil {
 		return nil, err
@@ -22,17 +26,22 @@ func CreateProject(title string, userID string) (*my_models.Project, error) {
 	return project, nil
 }
 
-// 更新项目标题
-func UpdateProjectTitle(projectID string, newTitle string, userID string) (*my_models.Project, error) {
+// 更新项目标题和其他字段
+func UpdateProjectTitle(projectID string, newTitle string, customInstruction string, files []my_models.File, toolsConfig, modelSvcsConfig my_models.JSONMap, userID string) (*my_models.Project, error) {
 	var project my_models.Project
+	//权限
 	if err := My_dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
 		return nil, err
 	}
 	project.Title = newTitle
+	project.CustomInstruction = customInstruction
+	project.Files = files
+	project.ToolsConfig = toolsConfig
+	project.ModelSvcsConfig = modelSvcsConfig
 	if err := My_dbservice.DB.Save(&project).Error; err != nil {
 		return nil, err
 	}
-	log.Println("Updated project title:", project)
+	log.Println("Updated project", project)
 	return &project, nil
 }
 
@@ -59,9 +68,9 @@ func DeleteProject(projectID string, userID string) error {
 }
 
 // GetProjectById 获取项目详情
-func GetProjectById(userID string, projectID string) (*my_models.Project, error) {
+func GetProjectById(projectID string) (*my_models.Project, error) {
 	var project my_models.Project
-	if err := My_dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
+	if err := My_dbservice.DB.First(&project, "id = ?", projectID).Error; err != nil {
 		return nil, err
 	}
 	log.Println("Found project:", project)

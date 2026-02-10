@@ -30,7 +30,6 @@ func initDB() {
 
 	// dsn := "gormuser:gorm123@tcp(127.0.0.1:3306)/gorm_test?charset=utf8mb4&parseTime=True&loc=Local"
 
-	// var err error
 	// 使用MySQL数据库（便于演示，生产环境请用MySQL/PostgreSQL）
 	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -38,7 +37,7 @@ func initDB() {
 	}
 
 	// 自动迁移表结构
-	err = db.AutoMigrate(&my_models.Session{}, &my_models.Message{})
+	err = db.AutoMigrate(&my_models.Session{}, &my_models.Message{}, &my_models.Project{})
 	if err != nil {
 		log.Fatal("数据库迁移失败:", err)
 	}
