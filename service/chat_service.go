@@ -122,6 +122,7 @@ func dealStreamChat(stream *my_manager.StreamState, prompt string, sessionID str
 		stream.Mu.Lock()
 		stream.Chunks = append(stream.Chunks, string(ch))
 		stream.UpdatedAt = time.Now()
+		stream.FullResponse += string(ch)
 		// SendSSE(writer, flusher, "message", map[string]any{"content": string(ch)})
 
 		// 广播给所有客户端
@@ -139,23 +140,9 @@ func dealStreamChat(stream *my_manager.StreamState, prompt string, sessionID str
 
 		stream.Mu.Unlock()
 
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
-
-	stream.Mu.Lock()
-	defer stream.Mu.Unlock()
-
-	for _, clientChan := range stream.Clients {
-		select {
-		case clientChan <- my_manager.StreamChunk{
-			Content: reply,
-			IsFinal: true,
-		}:
-		default:
-			log.Println("Client channel is full, skipping")
-			// 客户端可能已断开，跳过
-		}
-	}
+	my_manager.GlobalStreamManager.CompleteStream(stream.SessionID + "_" + stream.MessageID)
 	// 6. 结束标记
 	// SendSSE(writer, flusher, "done", map[string]any{"done": "true"})
 	log.Println("Completed StreamChatService for sessionID:", sessionID)

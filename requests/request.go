@@ -57,6 +57,11 @@ type StreamChatReq struct {
 	QueryInfo QueryInfoModel `json:"query_info"`
 }
 
+// 恢复流式对话请求结构
+type ResumeStreamChatReq struct {
+	MessageID string `json:"message_id"`
+}
+
 // 查询信息模型
 // 包含用户查询和相关文件
 type QueryInfoModel struct {

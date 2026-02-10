@@ -38,7 +38,7 @@ type StreamManager struct {
 	Mu      sync.RWMutex
 }
 
-var streamManager = StreamManager{
+var GlobalStreamManager = StreamManager{
 	Streams: make(map[string]*StreamState),
 }
 
@@ -89,11 +89,11 @@ func (sm *StreamManager) AddChunk(stream *StreamState, chunk string) {
 }
 
 // 标记流完成
-func (sm *StreamManager) CompleteStream(sessionID string) {
+func (sm *StreamManager) CompleteStream(streamKey string) {
 	sm.Mu.Lock()
 	defer sm.Mu.Unlock()
 
-	if stream, exists := sm.Streams[sessionID]; exists {
+	if stream, exists := sm.Streams[streamKey]; exists {
 		stream.IsCompleted = true
 		stream.UpdatedAt = time.Now()
 
@@ -104,12 +104,13 @@ func (sm *StreamManager) CompleteStream(sessionID string) {
 			delete(stream.Clients, clientID)
 		}
 		//删除流
-		delete(sm.Streams, sessionID)
+		delete(sm.Streams, streamKey)
 	}
 }
 
 // 客户端注册监听
 func (sm *StreamManager) RegisterClient(stream *StreamState, clientID string) <-chan StreamChunk {
+
 	ch := make(chan StreamChunk, 100)
 	stream.Clients[clientID] = ch
 

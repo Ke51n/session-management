@@ -544,6 +544,17 @@ func main() {
 			DataType("my_requests.StreamChatReq")).
 		Returns(200, "OK", nil))
 
+	//resume接口
+	ws.Route(ws.POST("/sessions/{sessionId}/stream/resume").
+		To(my_handler.ResumeStreamChatHandler).
+		Doc("Resume session chat (SSE)").
+		Consumes(restful.MIME_JSON).
+		Produces("text/event-stream").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.BodyParameter("request", "ResumeStreamChatReq").
+			DataType("my_requests.ResumeStreamChatReq")).
+		Returns(200, "OK", nil))
+
 	restful.Add(ws)
 	restful.EnableTracing(true)
 
