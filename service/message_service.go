@@ -1,13 +1,14 @@
 package service
 
 import (
+	"log"
 	my_models "session-demo/models"
 	"time"
 )
 
 // 保存一条消息到数据库
 func CreateAndSaveMessage(messageID string, sessionID string, parentID *string, role string,
-	steps []my_models.StepNode, files []my_models.File, content string, tokenCount int, deleted bool,
+	steps []my_models.StepNode, files []my_models.File, content string, tokenCount int, status string, deleted bool,
 	extension, metadata map[string]any) error {
 
 	msg := &my_models.Message{
@@ -23,6 +24,7 @@ func CreateAndSaveMessage(messageID string, sessionID string, parentID *string, 
 
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+		Status:    status,
 		Deleted:   deleted,
 
 		Extension: extension,
@@ -31,6 +33,7 @@ func CreateAndSaveMessage(messageID string, sessionID string, parentID *string, 
 	if err := My_dbservice.DB.Create(msg).Error; err != nil {
 		return err
 	}
+	log.Printf("创建消息成功: %v", msg)
 	return nil
 }
 
@@ -44,4 +47,12 @@ func ListMessagesBySession(userID, sessionID string) ([]my_models.Message, error
 		return nil, err
 	}
 	return messages, nil
+}
+
+// 更新消息状态，全量更新
+func updateMessageById(message *my_models.Message) error {
+	if err := My_dbservice.DB.Save(message).Error; err != nil {
+		return err
+	}
+	return nil
 }

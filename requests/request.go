@@ -68,3 +68,8 @@ type QueryInfoModel struct {
 	Query string           `json:"query"`
 	Files []my_models.File `json:"files"`
 }
+
+// BreakStreamChatReq 中断流式对话请求结构
+type BreakStreamChatReq struct {
+	MessageID string `json:"message_id"`
+}

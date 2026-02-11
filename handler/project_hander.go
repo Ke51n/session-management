@@ -7,26 +7,10 @@ import (
 	"session-demo/requests"
 	"session-demo/response"
 	my_service "session-demo/service"
+	my_utils "session-demo/utils"
 
 	"github.com/emicklei/go-restful/v3"
 )
-
-// 从请求头中获取用户ID
-func getUserIdFromHeader(req *restful.Request, resp *restful.Response) string {
-	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
-	token := req.HeaderParameter("TOKEN")
-	log.Println("extracted user_id from header:", token)
-	req.SetAttribute("user_id", token)
-
-	v := req.Attribute("user_id")
-	userID, ok := v.(string)
-	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:", userID)
-		resp.WriteErrorString(400, "uid is required")
-		return ""
-	}
-	return userID
-}
 
 // 创建一个项目，指定标题
 func CreateProjectHandler() restful.RouteFunction {
@@ -38,7 +22,7 @@ func CreateProjectHandler() restful.RouteFunction {
 		}
 
 		// 从请求头中获取用户ID
-		userID := getUserIdFromHeader(req, resp)
+		userID := my_utils.GetUserIdFromHeader(req, resp)
 		if userID == "" {
 			return
 		}
@@ -69,7 +53,7 @@ func UpdateProjectHandler() restful.RouteFunction {
 		}
 
 		// 从请求头中获取用户ID
-		userID := getUserIdFromHeader(req, resp)
+		userID := my_utils.GetUserIdFromHeader(req, resp)
 		if userID == "" {
 			return
 		}
@@ -95,7 +79,7 @@ func DeleteProjectHandler() restful.RouteFunction {
 		projectID := req.PathParameter("projectId")
 
 		// 从请求头中获取用户ID
-		userID := getUserIdFromHeader(req, resp)
+		userID := my_utils.GetUserIdFromHeader(req, resp)
 		if userID == "" {
 			return
 		}
@@ -118,7 +102,7 @@ func DeleteProjectHandler() restful.RouteFunction {
 func ListProjectsHandler() restful.RouteFunction {
 	return func(req *restful.Request, resp *restful.Response) {
 		// 从请求头中获取用户ID
-		userID := getUserIdFromHeader(req, resp)
+		userID := my_utils.GetUserIdFromHeader(req, resp)
 		if userID == "" {
 			return
 		}
@@ -145,7 +129,7 @@ func ListSessionsHandler() restful.RouteFunction {
 	return func(req *restful.Request, resp *restful.Response) {
 
 		// 从请求头中获取用户ID
-		userID := getUserIdFromHeader(req, resp)
+		userID := my_utils.GetUserIdFromHeader(req, resp)
 		if userID == "" {
 			return
 		}

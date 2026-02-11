@@ -7,6 +7,7 @@ import (
 	my_requests "session-demo/requests"
 	my_response "session-demo/response"
 	my_service "session-demo/service"
+	my_utils "session-demo/utils"
 	"strings"
 	"time"
 
@@ -72,7 +73,7 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 	// 用户消息写数据库
 	userMsgID := uuid.NewString()
 	my_service.CreateAndSaveMessage(userMsgID, session.ID, nil, "user", nil, reqData.Files, reqData.Query,
-		len(reqData.Query), false, nil, nil)
+		len(reqData.Query), "completed", false, nil, nil)
 	log.Println("Saved user message id:", userMsgID)
 
 	// 4. SSE 发送 session_id
@@ -132,7 +133,8 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 			Text: "苹果是一种红色的水果，通常用于 pies。",
 		})
 	}
-	my_service.CreateAndSaveMessage(assistantMsgID, session.ID, &userMsgID, "assistant", steps, nil, reply, len(reply), false, nil, nil)
+	my_service.CreateAndSaveMessage(assistantMsgID, session.ID, &userMsgID, my_utils.RoleAssistant,
+		steps, nil, reply, len(reply), "completed", false, nil, nil)
 	log.Println("Saved assistant message id:", assistantMsgID)
 
 }
@@ -216,7 +218,7 @@ func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Respons
 func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
-	userID := getUserIdFromHeader(req, resp)
+	userID := my_utils.GetUserIdFromHeader(req, resp)
 	if userID == "" {
 		return
 	}
@@ -263,7 +265,7 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
-	userID := getUserIdFromHeader(req, resp)
+	userID := my_utils.GetUserIdFromHeader(req, resp)
 	if userID == "" {
 		return
 	}

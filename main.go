@@ -20,6 +20,7 @@ import (
 
 	my_handler "session-demo/handler"
 	my_response "session-demo/response"
+	my_utils "session-demo/utils"
 
 	"github.com/emicklei/go-restful/v3"
 )
@@ -269,7 +270,7 @@ func handleDialog(c *gin.Context) {
 	assistantMsg := models.Message{
 		ID:        assistantMsgID,
 		SessionID: req.SessionID,
-		Role:      "assistant",
+		Role:      my_utils.RoleAssistant,
 		Content:   reply,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -309,7 +310,7 @@ func buildPrompt(history []models.Message, currentQuery string) string {
 
 	for _, msg := range history {
 		role := "用户"
-		if msg.Role == "assistant" {
+		if msg.Role == my_utils.RoleAssistant {
 			role = "助手"
 		}
 		promptBuilder.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
@@ -535,7 +536,7 @@ func main() {
 
 	//在已有会话中对话
 	ws.Route(ws.POST("/sessions/{sessionId}/stream").
-		To(my_handler.StreamChatHandler).
+		To(my_handler.NewStreamChatHandler).
 		Doc("Chat in a session (SSE)").
 		Consumes(restful.MIME_JSON).
 		Produces("text/event-stream").
@@ -554,6 +555,15 @@ func main() {
 		Param(ws.BodyParameter("request", "ResumeStreamChatReq").
 			DataType("my_requests.ResumeStreamChatReq")).
 		Returns(200, "OK", nil))
+
+	//中断接口
+	ws.Route(ws.POST("/sessions/{sessionId}/stream/break").
+		To(my_handler.BreakStreamChatHandler).
+		Doc("Break session chat ").
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.BodyParameter("request", "BreakStreamChatReq").
+			DataType("my_requests.BreakStreamChatReq")).
+		Returns(200, "OK", my_response.BreakStreamChatResponse{}))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)
