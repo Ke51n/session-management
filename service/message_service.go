@@ -5,33 +5,10 @@ import (
 	"net/http"
 	my_models "session-demo/models"
 	"session-demo/response"
-	"time"
 )
 
 // 保存一条消息到数据库
-func CreateAndSaveMessage(messageID string, sessionID string, parentID *string, role string,
-	steps []my_models.StepNode, files []my_models.File, content string, tokenCount int, status string, deleted bool,
-	extension, metadata map[string]any) error {
-
-	msg := &my_models.Message{
-		ID:        messageID,
-		SessionID: sessionID,
-		ParentID:  parentID,
-
-		Role:       role,
-		Steps:      steps,
-		Files:      files,
-		Content:    content,
-		TokenCount: tokenCount,
-
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Status:    status,
-		Deleted:   deleted,
-
-		Extension: extension,
-		Metadata:  metadata,
-	}
+func CreateAndSaveMessage(msg *my_models.Message) error {
 	if err := Dbservice.DB.Create(msg).Error; err != nil {
 		return err
 	}

@@ -38,12 +38,13 @@ import (
 func getUserIdFromHeader(req *restful.Request) string {
 	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
 	token := req.HeaderParameter("TOKEN")
+	req.SetAttribute("user_id", token)
 	log.Println("extracted user_id from header:", token)
 
 	v := req.Attribute("user_id")
 	userID, ok := v.(string)
 	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:", userID)
+		log.Println("user_id is missing or invalid, userID:1", userID)
 		return ""
 	}
 	return userID
@@ -60,15 +61,12 @@ func AuthFilter(req *restful.Request, resp *restful.Response, chain *restful.Fil
 		return
 	}
 
-	// 将 userID 存入 Request 的 Attribute 中，供后续 Handler 使用
-	req.SetAttribute("userID", userID)
-
 	chain.ProcessFilter(req, resp)
 }
 
 // GetUserID 辅助函数，从 Context 获取用户ID
 func GetUserID(req *restful.Request) string {
-	val := req.Attribute("userID")
+	val := req.Attribute("user_id")
 	if val == nil {
 		return ""
 	}

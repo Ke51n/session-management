@@ -259,19 +259,19 @@ func UpdateSession(userID, sessionID string, title string) error {
 }
 
 // 根据id查询session
-func QuerySession(sessionID string) (*my_models.Session, *response.BizError) {
+func QuerySession(userId, sessionID string) (*my_models.Session, *response.BizError) {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := Dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
+	if err := Dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userId).First(&conv).Error; err != nil {
 		return nil, &response.BizError{HttpStatus: http.StatusNotFound, Msg: err.Error()}
 	}
 	return &conv, nil
 }
 
-func GetSessionById(sessionID string) (*my_models.Session, error) {
+func GetSessionById(userId, sessionID string) (*my_models.Session, error) {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := Dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
+	if err := Dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userId).First(&conv).Error; err != nil {
 		return nil, &response.BizError{HttpStatus: http.StatusNotFound, Msg: err.Error()}
 	}
 	return &conv, nil

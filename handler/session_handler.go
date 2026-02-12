@@ -29,18 +29,14 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 	flusher, ok := writer.(http.Flusher)
 	if !ok {
 		http.Error(writer, "Streaming unsupported", http.StatusInternalServerError)
+		response.WriteBizError(resp, constant.ErrInternalServer)
 		return
 	}
 	// 从header解析TOKEN（可选）
 	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
-	token := req.HeaderParameter("TOKEN")
-	req.SetAttribute("user_id", token)
-
-	v := req.Attribute("user_id")
-	userID, ok := v.(string)
-	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:", userID)
-		resp.WriteErrorString(400, "uid is required")
+	userID := auth.GetUserID(req)
+	if userID == "" {
+		response.WriteBizError(resp, constant.ErrUnauthorized)
 		return
 	}
 
@@ -73,8 +69,20 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 
 	// 用户消息写数据库
 	userMsgID := uuid.NewString()
-	service.CreateAndSaveMessage(userMsgID, session.ID, nil, "user", nil, reqData.Files, reqData.Query,
-		len(reqData.Query), "completed", false, nil, nil)
+	userMsg := &models.Message{
+		ID:         userMsgID,
+		SessionID:  session.ID,
+		ParentID:   nil,
+		Content:    reqData.Query,
+		TokenCount: len(reqData.Query),
+		Status:     "completed",
+		Files:      reqData.Files,
+		Deleted:    false,
+
+		Role:  constant.RoleUser,
+		Steps: nil,
+	}
+	service.CreateAndSaveMessage(userMsg)
 	log.Println("Saved user message id:", userMsgID)
 
 	// 4. SSE 发送 session_id
@@ -134,8 +142,20 @@ func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response
 			Text: "苹果是一种红色的水果，通常用于 pies。",
 		})
 	}
-	service.CreateAndSaveMessage(assistantMsgID, session.ID, &userMsgID, constant.RoleAssistant,
-		steps, nil, reply, len(reply), "completed", false, nil, nil)
+	assistantMsg := &models.Message{
+		ID:         assistantMsgID,
+		SessionID:  session.ID,
+		ParentID:   &userMsgID,
+		Content:    reply,
+		TokenCount: len(reply),
+		Status:     "completed",
+		Files:      nil,
+		Deleted:    false,
+
+		Role:  constant.RoleAssistant,
+		Steps: steps,
+	}
+	service.CreateAndSaveMessage(assistantMsg)
 	log.Println("Saved assistant message id:", assistantMsgID)
 
 }
@@ -152,20 +172,13 @@ func getTitleFromQuery(query string) string {
 // 查询某个会话的所有消息
 func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) {
 
-	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
-	token := req.HeaderParameter("TOKEN")
-	log.Println("extracted user_id from header:", token)
-	req.SetAttribute("user_id", token)
-
-	sessionID := req.PathParameter("sessionId")
-	v := req.Attribute("user_id")
-	userID, ok := v.(string)
-	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:", userID)
+	userID := auth.GetUserID(req)
+	if userID == "" {
 		resp.WriteErrorString(400, "uid is required")
 		return
 	}
 
+	sessionID := req.PathParameter("sessionId")
 	// 调用服务层
 	messages, err := service.ListMessagesBySession(userID, sessionID)
 	if err != nil {
@@ -185,16 +198,8 @@ func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) 
 
 func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Response) {
 
-	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
-	token := req.HeaderParameter("TOKEN")
-	log.Println("extracted user_id from header:", token)
-	req.SetAttribute("user_id", token)
-
-	v := req.Attribute("user_id")
-	userID, ok := v.(string)
-	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:", userID)
-		resp.WriteErrorString(400, "uid is required")
+	userID := auth.GetUserID(req)
+	if userID == "" {
 		return
 	}
 
