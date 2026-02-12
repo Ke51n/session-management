@@ -48,7 +48,7 @@ func handleDialogStreamWithResumeInner(c *gin.Context, req DialogRequest) {
 	// 检查 SessionID 是否存在，是否属于当前用户，且未被删除
 	// 如果验证失败，返回 404 错误
 	var session my_models.Session
-	if my_service.My_dbservice.DB.Where("id = ? AND user_id = ? AND deleted = ?",
+	if my_service.Dbservice.DB.Where("id = ? AND user_id = ? AND deleted = ?",
 		req.SessionID, req.UserID, false).First(&session).Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
 		return

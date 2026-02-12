@@ -1,6 +1,59 @@
 package response
 
-import "session-demo/models"
+import (
+	"net/http"
+	"session-demo/models"
+
+	"github.com/emicklei/go-restful/v3"
+)
+
+type CommonResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
+
+func SuccessResp(data any) *CommonResponse {
+	return &CommonResponse{
+		Code:    0, // 惯例：0 代表成功
+		Message: "success",
+		Data:    data,
+	}
+}
+func ErrorResp(code int, message string) *CommonResponse {
+	return &CommonResponse{
+		Code:    code,
+		Message: message,
+		Data:    nil, // 错误通常没有数据负载
+	}
+}
+
+// BizError 定义业务错误接口，方便 Service 层返回具体错误
+type BizError struct {
+	HttpStatus int    `json:"http_status"`
+	Code       int    `json:"code"`
+	Msg        string `json:"message"`
+}
+
+func (e *BizError) Error() string {
+	return e.Msg
+}
+
+// 统一错误响应写入
+func WriteBizError(resp *restful.Response, err error) {
+	if bizErr, ok := err.(*BizError); ok {
+		resp.WriteHeaderAndEntity(bizErr.HttpStatus, CommonResponse{
+			Code:    bizErr.Code,
+			Message: bizErr.Msg,
+		})
+		return
+	}
+	// 非业务错误，统一视为内部错误，不暴露细节给前端
+	resp.WriteHeaderAndEntity(http.StatusInternalServerError, CommonResponse{
+		Code:    -1,
+		Message: "Internal Server Error",
+	})
+}
 
 // 查询某个项目下的所有会话响应结构
 type ListSessionsResponse struct {

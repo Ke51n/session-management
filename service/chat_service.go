@@ -2,15 +2,85 @@ package service
 
 import (
 	"log"
-	my_models "session-demo/models"
-	my_requests "session-demo/requests"
+	"net/http"
+	constant "session-demo/const"
+	"session-demo/models"
+	"session-demo/pkg/auth"
+	"session-demo/requests"
+	"session-demo/response"
 	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/google/uuid"
 )
 
-func StreamChat(stream *StreamState, reqBody my_requests.StreamChatReq, sessionID string, resp *restful.Response) {
+// 在已有会话中新对话
+func NewStreamChatInSession(sessionID string, reqBody requests.StreamChatReq, req *restful.Request, resp *restful.Response) {
+
+	userId := auth.GetUserID(req)
+	//检查session和lastMessageId 有效性
+	session, err := GetSessionById(sessionID)
+	if err != nil {
+		response.WriteBizError(resp, err)
+		log.Println("NewStreamChatInSession: session not found:", sessionID)
+		return
+	}
+
+	//检查userID是否匹配
+	if session.UserID != userId {
+		response.WriteBizError(resp, &response.BizError{HttpStatus: http.StatusForbidden, Msg: "userID not match"})
+		log.Println("NewStreamChatInSession: userID not match:", userId)
+		return
+	}
+
+	//检查lastMessageId 有效性
+	if reqBody.LastMsgID != "" {
+		_, err := GetMessageById(sessionID, reqBody.LastMsgID)
+		if err != nil {
+			response.WriteBizError(resp, err)
+			return
+		}
+	}
+
+	//保存用户消息
+	var parentId *string
+	if reqBody.LastMsgID != "" {
+		parentId = &reqBody.LastMsgID
+	}
+	userMsgId := uuid.NewString()
+	CreateAndSaveMessage(
+		userMsgId,
+		sessionID,
+		parentId,
+		constant.RoleUser,
+		nil,
+		reqBody.QueryInfo.Files,
+		reqBody.QueryInfo.Query,
+		len(reqBody.QueryInfo.Files),
+		"completed",
+		false,
+		nil,
+		nil,
+	)
+	// 获取流
+	assistantMsgId := uuid.NewString()
+	//先保存助手消息占位，标识状态
+	CreateAndSaveMessage(
+		assistantMsgId,
+		sessionID,
+		&userMsgId, "assistant", nil, nil, "",
+		0, "processing", false, nil, nil)
+
+	stream := GlobalStreamManager.GetOrCreateStream(sessionID, assistantMsgId, userMsgId, reqBody.QueryInfo.Query, false)
+
+	go StreamChat(stream, reqBody, sessionID, resp)
+
+	dealStreamChat(stream, false, req, resp)
+	log.Println("deal stream chat: new  done :", stream.MessageID)
+}
+
+func StreamChat(stream *StreamState, reqBody requests.StreamChatReq, sessionID string, resp *restful.Response) {
 
 	// 构造最终prompt
 	prompt := buildFinalPrompt(reqBody, sessionID)
@@ -25,7 +95,7 @@ func StreamChat(stream *StreamState, reqBody my_requests.StreamChatReq, sessionI
 }
 
 // buildFinalPrompt 构建最终prompt
-func buildFinalPrompt(reqBody my_requests.StreamChatReq, sessionID string) string {
+func buildFinalPrompt(reqBody requests.StreamChatReq, sessionID string) string {
 	//构造历史上下文
 	history := buildHistoryContext(sessionID, reqBody.LastMsgID)
 
@@ -53,10 +123,10 @@ func buildHistoryContext(sessionID string, lastMsgID string) string {
 		return ""
 	}
 	// 从数据库查询历史消息
-	var messages []my_models.Message
-	My_dbservice.DB.Where("session_id = ?", sessionID).Order("id").Find(&messages)
+	var messages []models.Message
+	Dbservice.DB.Where("session_id = ?", sessionID).Order("id").Find(&messages)
 
-	msgMap := make(map[string]my_models.Message)
+	msgMap := make(map[string]models.Message)
 	for _, msg := range messages {
 		msgMap[msg.ID] = msg
 	}

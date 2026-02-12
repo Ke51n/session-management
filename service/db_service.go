@@ -13,7 +13,7 @@ type DBService struct {
 	DB *gorm.DB
 }
 
-var My_dbservice *DBService
+var Dbservice *DBService
 
 // 初始化
 func init() {
@@ -47,5 +47,5 @@ func initDB() {
 
 	log.Println("数据库初始化完成1")
 
-	My_dbservice = &DBService{DB: db}
+	Dbservice = &DBService{DB: db}
 }

@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	my_models "session-demo/models"
+	"session-demo/response"
 	"time"
 
 	"github.com/google/uuid"
@@ -182,7 +184,7 @@ func ListByProject(userID string, projectID string) ([]my_models.Session, error)
 	//  查询数据库
 	var sessions []my_models.Session
 	log.Println("Listing sessions for userID:", userID, "projectID:", projectID)
-	err := My_dbservice.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Find(&sessions).Error
+	err := Dbservice.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Find(&sessions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +203,7 @@ func CreateSession(userID string, projectID string, title string) (*my_models.Se
 		UpdatedAt: time.Now(),
 		Deleted:   false,
 	}
-	if err := My_dbservice.DB.Create(session).Error; err != nil {
+	if err := Dbservice.DB.Create(session).Error; err != nil {
 		return nil, err
 	}
 	log.Println("Created session:", session)
@@ -212,14 +214,14 @@ func CreateSession(userID string, projectID string, title string) (*my_models.Se
 func MoveSessionToProject(userID, sessionID string, projectID string) error {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+	if err := Dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
 		return errors.New("session not found or access denied")
 	}
 
 	// 更新会话项目ID
 	conv.ProjectID = projectID
 	conv.UpdatedAt = time.Now()
-	if err := My_dbservice.DB.Save(&conv).Error; err != nil {
+	if err := Dbservice.DB.Save(&conv).Error; err != nil {
 		return err
 	}
 	log.Println("Moved session:", sessionID, "to project:", projectID)
@@ -231,7 +233,7 @@ func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
 	// 查询数据库
 	var sessions []my_models.Session
 	log.Println("Listing sessions not in project for userID:", userID)
-	err := My_dbservice.DB.Where("project_id = '' AND user_id = ?", userID).Find(&sessions).Error
+	err := Dbservice.DB.Where("project_id = '' AND user_id = ?", userID).Find(&sessions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -242,34 +244,35 @@ func ListSessionsNotInProject(userID string) ([]my_models.Session, error) {
 func UpdateSession(userID, sessionID string, title string) error {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+	if err := Dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
 		return errors.New("session not found or access denied")
 	}
 
 	// 更新会话标题
 	conv.Title = title
 	conv.UpdatedAt = time.Now()
-	if err := My_dbservice.DB.Save(&conv).Error; err != nil {
+	if err := Dbservice.DB.Save(&conv).Error; err != nil {
 		return err
 	}
 	log.Println("Updated session:", sessionID, "title:", title)
 	return nil
 }
 
-func QuerySession(userID, sessionID string) error {
+// 根据id查询session
+func QuerySession(sessionID string) (*my_models.Session, *response.BizError) {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := My_dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
-		return errors.New("session not found or access denied")
+	if err := Dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
+		return nil, &response.BizError{HttpStatus: http.StatusNotFound, Msg: err.Error()}
 	}
-	return nil
+	return &conv, nil
 }
 
 func GetSessionById(sessionID string) (*my_models.Session, error) {
 	// 验证会话归属
 	var conv my_models.Session
-	if err := My_dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
-		return nil, errors.New("session not found")
+	if err := Dbservice.DB.Where("id = ?", sessionID).First(&conv).Error; err != nil {
+		return nil, &response.BizError{HttpStatus: http.StatusNotFound, Msg: err.Error()}
 	}
 	return &conv, nil
 }

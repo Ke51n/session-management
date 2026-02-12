@@ -1,6 +1,6 @@
-package utils
+package constant
 
-const (
+var (
 	RoleUser      = "user"
 	RoleAssistant = "assistant"
 )

@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
+	constant "session-demo/const"
 	"session-demo/models"
-	my_models "session-demo/models"
+	"session-demo/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,9 +19,8 @@ import (
 
 	"gorm.io/gorm"
 
-	my_handler "session-demo/handler"
-	my_response "session-demo/response"
-	my_utils "session-demo/utils"
+	"session-demo/handler"
+	"session-demo/response"
 
 	"github.com/emicklei/go-restful/v3"
 )
@@ -128,12 +128,12 @@ type SSEMessage struct {
 
 // 请求和响应结构体
 type DialogRequest struct {
-	SessionID string           `json:"session_id" binding:"required"`
-	Query     string           `json:"query" binding:"required"`
-	UserID    string           `json:"user_id" binding:"required"`
-	MessageOP string           `json:"message_op"` //todo
-	MessageID string           `json:"message_id"`
-	Files     []my_models.File `json:"file"`
+	SessionID string        `json:"session_id" binding:"required"`
+	Query     string        `json:"query" binding:"required"`
+	UserID    string        `json:"user_id" binding:"required"`
+	MessageOP string        `json:"message_op"` //todo
+	MessageID string        `json:"message_id"`
+	Files     []models.File `json:"file"`
 }
 
 type DialogResponse struct {
@@ -270,7 +270,7 @@ func handleDialog(c *gin.Context) {
 	assistantMsg := models.Message{
 		ID:        assistantMsgID,
 		SessionID: req.SessionID,
-		Role:      my_utils.RoleAssistant,
+		Role:      constant.RoleAssistant,
 		Content:   reply,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -310,7 +310,7 @@ func buildPrompt(history []models.Message, currentQuery string) string {
 
 	for _, msg := range history {
 		role := "用户"
-		if msg.Role == my_utils.RoleAssistant {
+		if msg.Role == constant.RoleAssistant {
 			role = "助手"
 		}
 		promptBuilder.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
@@ -451,6 +451,7 @@ func handleGetHistory(c *gin.Context) {
 
 func main() {
 	ws := new(restful.WebService)
+	ws.Filter(auth.AuthFilter)
 	ws.
 		Path("/api/v1/applet/ai").
 		Consumes(restful.MIME_JSON).
@@ -458,54 +459,54 @@ func main() {
 
 	//项目
 	//创建一个项目，指定标题（可选）
-	ws.Route(ws.POST("/projects").To(my_handler.CreateProjectHandler()).
+	ws.Route(ws.POST("/projects").To(handler.CreateProjectHandler).
 		Doc("Create a new project").
 		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("my_requests.CreateAndEditProjectReq")).
-		Returns(201, "Created", my_response.CreateOrEditProjectResponse{}).
+		Returns(201, "Created", response.CreateOrEditProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//更新项目
-	ws.Route(ws.PATCH("/projects/{projectId}").To(my_handler.UpdateProjectHandler()).
+	ws.Route(ws.PATCH("/projects/{projectId}").To(handler.UpdateProjectHandler).
 		Doc("Update a project title").
-		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("my_requests.CreateAndEditProjectReq")).
-		Returns(200, "OK", my_response.UpdateProjectResponse{}).
+		Returns(200, "OK", response.UpdateProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//查询所有项目
-	ws.Route(ws.GET("/projects").To(my_handler.ListProjectsHandler()).
+	ws.Route(ws.GET("/projects").To(handler.ListProjectsHandler).
 		Doc("List all projects").
-		Returns(200, "OK", my_response.ListProjectsResponse{}).
+		Returns(200, "OK", response.ListProjectsResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//删除一个项目
-	ws.Route(ws.DELETE("/projects/{projectId}").To(my_handler.DeleteProjectHandler()).
+	ws.Route(ws.DELETE("/projects/{projectId}").To(handler.DeleteProjectHandler).
 		Doc("Delete a project").
-		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string").Required(true)).
 		Returns(204, "No Content", nil).
 		Returns(400, "Bad Request", nil))
 
 	// 查询某个项目下的所有会话
-	ws.Route(ws.GET("/projects/{projectId}/sessions").To(my_handler.ListSessionsHandler()).
+	ws.Route(ws.GET("/projects/{projectId}/sessions").To(handler.ListSessionsHandler).
 		Doc("List all sessions under a project").
-		Param(ws.PathParameter("projectId", "Project ID").DataType("string")).
-		Returns(200, "OK", my_response.ListSessionsResponse{}).
+		Param(ws.PathParameter("projectId", "Project ID").DataType("string").Required(true)).
+		Returns(200, "OK", response.ListSessionsResponse{}).
 		Returns(401, "Unauthorized", nil).
 		Returns(403, "Forbidden", nil).
 		Returns(404, "Not Found", nil))
 
 	//会话
 	//修改会话标题
-	ws.Route(ws.PATCH("/sessions/{sessionId}").To(my_handler.UpdateSessionHandler).
+	ws.Route(ws.PATCH("/sessions/{sessionId}").To(handler.UpdateSessionHandler).
 		Doc("Update a session title").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "UpdateSessionReq").DataType("my_requests.UpdateSessionReq")).
-		Returns(200, "OK", my_response.UpdateSessionTitleResponse{}).
+		Returns(200, "OK", response.UpdateSessionTitleResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//创建一个会话并对话，sse流式响应
 	ws.Route(ws.POST("/sessions/stream").
-		To(my_handler.CreateSessionStreamChatHandler).
+		To(handler.CreateSessionStreamChatHandler).
 		Doc("Create session and chat (SSE)").
 		Consumes(restful.MIME_JSON).
 		Produces("text/event-stream").
@@ -514,56 +515,56 @@ func main() {
 		Returns(200, "OK", nil))
 
 	//查询某个会话所有消息
-	ws.Route(ws.GET("/sessions/{sessionId}/messages").To(my_handler.ListMessagesBySessionHandler).
+	ws.Route(ws.GET("/sessions/{sessionId}/messages").To(handler.ListMessagesBySessionHandler).
 		Doc("Get session history").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
-		Returns(200, "OK", my_response.ListMessagesResponse{}).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
+		Returns(200, "OK", response.ListMessagesResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	// 获取不在项目里的会话
-	ws.Route(ws.GET("/sessions/unassigned").To(my_handler.ListSessionsNotInProjectHandler).
+	ws.Route(ws.GET("/sessions/unassigned").To(handler.ListSessionsNotInProjectHandler).
 		Doc("List all sessions not in project").
-		Returns(200, "OK", my_response.ListSessionsResponse{}).
+		Returns(200, "OK", response.ListSessionsResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//移动一个会话到某个指定项目
-	ws.Route(ws.PUT("/sessions/{sessionId}/move").To(my_handler.MoveSessionToProjectHandler).
+	ws.Route(ws.PUT("/sessions/{sessionId}/move").To(handler.MoveSessionToProjectHandler).
 		Doc("Move a session to a project").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "MoveSessionToProjectReq").DataType("my_requests.MoveSessionToProjectReq")).
-		Returns(200, "OK", my_response.MoveSessionToProjectResponse{}).
+		Returns(200, "OK", response.MoveSessionToProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//在已有会话中对话
 	ws.Route(ws.POST("/sessions/{sessionId}/stream").
-		To(my_handler.NewStreamChatHandler).
+		To(handler.NewStreamChatHandler).
 		Doc("Chat in a session (SSE)").
 		Consumes(restful.MIME_JSON).
 		Produces("text/event-stream").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "StreamChatReq").
 			DataType("my_requests.StreamChatReq")).
 		Returns(200, "OK", nil))
 
 	//resume接口
 	ws.Route(ws.POST("/sessions/{sessionId}/stream/resume").
-		To(my_handler.ResumeStreamChatHandler).
+		To(handler.ResumeStreamChatHandler).
 		Doc("Resume session chat (SSE)").
 		Consumes(restful.MIME_JSON).
 		Produces("text/event-stream").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "ResumeStreamChatReq").
 			DataType("my_requests.ResumeStreamChatReq")).
 		Returns(200, "OK", nil))
 
 	//中断接口
 	ws.Route(ws.POST("/sessions/{sessionId}/stream/break").
-		To(my_handler.BreakStreamChatHandler).
+		To(handler.BreakStreamChatHandler).
 		Doc("Break session chat ").
-		Param(ws.PathParameter("sessionId", "Session ID").DataType("string")).
+		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "BreakStreamChatReq").
 			DataType("my_requests.BreakStreamChatReq")).
-		Returns(200, "OK", my_response.BreakStreamChatResponse{}))
+		Returns(200, "OK", response.BreakStreamChatResponse{}))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)
