@@ -3,36 +3,10 @@ package auth
 import (
 	"log"
 	"net/http"
-
 	response "session-demo/response"
 
 	"github.com/emicklei/go-restful/v3"
 )
-
-// func IsAuth(sessionID string, req *restful.Request, resp *restful.Response) bool {
-// 	if sessionID == "" {
-// 		resp.WriteError(http.StatusBadRequest, errors.New("需要sessionId"))
-// 		return false
-// 	}
-// 	// 从请求头中获取TOKEN
-// 	userID := GetUserIdFromHeader(req, resp)
-// 	if userID == "" {
-// 		resp.WriteError(http.StatusUnauthorized, errors.New("未授权"))
-// 		return false
-// 	}
-
-// 	// 验证会话归属
-// 	var session *models.Session
-// 	var err error
-// 	if session, err = service.GetSessionById(sessionID); err != nil {
-// 		resp.WriteError(http.StatusForbidden, err)
-// 		return false
-// 	} else if session.UserID != userID {
-// 		resp.WriteError(http.StatusForbidden, errors.New("会话归属错误"))
-// 		return false
-// 	}
-// 	return true
-// }
 
 // 从请求头中获取用户ID
 func getUserIdFromHeader(req *restful.Request) string {

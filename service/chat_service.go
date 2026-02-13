@@ -2,13 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	constant "session-demo/const"
 	"session-demo/models"
-	my_models "session-demo/models"
-	"session-demo/pkg/auth"
 	"session-demo/requests"
 	"session-demo/response"
 	"strings"
@@ -19,53 +16,44 @@ import (
 )
 
 // 在已有会话中新对话
-func NewStreamChatInSession(req *restful.Request, resp *restful.Response) {
+func NewStreamChatInSession(streamChatDto models.StreamChatDto) error {
 
-	var reqBody requests.StreamChatReq
-	if err := req.ReadEntity(&reqBody); err != nil {
-		response.WriteBizError(resp, err)
-		return
-	}
-	userId := auth.GetUserID(req)
-	sessionID := req.PathParameter("sessionId")
-
-	//检查session和lastMessageId 有效性
-	_, err := GetSessionById(userId, sessionID)
+	//检查session 有效性
+	session, err := GetSessionById(streamChatDto.UserId, streamChatDto.SessionId)
 	if err != nil {
-		response.WriteBizError(resp, err)
-		log.Println("NewStreamChatInSession: session not found:", sessionID)
-		return
+		return err
+	}
+
+	//检查project 有效性
+	if session.ProjectID != streamChatDto.ProjectID {
+		return &response.BizError{HttpStatus: http.StatusBadRequest, Code: 400, Msg: "项目ID不匹配"}
 	}
 
 	//检查lastMessageId 有效性
-	if reqBody.LastMsgID != "" {
-		_, err := GetMessageById(sessionID, reqBody.LastMsgID)
+	if streamChatDto.LastMsgID != "" {
+		_, err := GetMessageById(streamChatDto.SessionId, streamChatDto.LastMsgID)
 		if err != nil {
-			response.WriteBizError(resp, err)
-			return
+			return err
 		}
 	}
 
 	//保存用户消息
-
-	//保存助手消息占位,标识processing
-
 	var parentId *string
-	if reqBody.LastMsgID != "" {
-		parentId = &reqBody.LastMsgID
+	if streamChatDto.LastMsgID != "" {
+		parentId = &streamChatDto.LastMsgID
 	}
 	userMsgId := uuid.NewString()
 
-	userMsg := &my_models.Message{
+	userMsg := &models.Message{
 		ID:        userMsgId,
-		SessionID: sessionID,
+		SessionID: streamChatDto.SessionId,
 		ParentID:  parentId,
 
 		Role:       constant.RoleUser,
 		Steps:      nil,
-		Files:      reqBody.QueryInfo.Files,
-		Content:    reqBody.QueryInfo.Query,
-		TokenCount: len(reqBody.QueryInfo.Query),
+		Files:      streamChatDto.Files,
+		Content:    streamChatDto.Query,
+		TokenCount: len(streamChatDto.Query),
 
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -77,14 +65,13 @@ func NewStreamChatInSession(req *restful.Request, resp *restful.Response) {
 	}
 
 	if err := CreateAndSaveMessage(userMsg); err != nil {
-		response.WriteBizError(resp, err)
-		return
+		return err
 	}
 	assistantMsgId := uuid.NewString()
-	//先保存助手消息占位，标识状态
-	assistantMsg := &my_models.Message{
+	//保存助手消息占位,标识processing
+	assistantMsg := &models.Message{
 		ID:        assistantMsgId,
-		SessionID: sessionID,
+		SessionID: streamChatDto.SessionId,
 		ParentID:  &userMsgId,
 
 		Role:       constant.RoleAssistant,
@@ -102,25 +89,26 @@ func NewStreamChatInSession(req *restful.Request, resp *restful.Response) {
 		Metadata:  nil,
 	}
 	if err := CreateAndSaveMessage(assistantMsg); err != nil {
-		response.WriteBizError(resp, err)
-		return
+		return err
 	}
 
 	//获取流
-	stream := GlobalStreamManager.GetOrCreateStream(sessionID, assistantMsgId, userMsgId, reqBody.QueryInfo.Query, false)
+	stream := GlobalStreamManager.GetOrCreateStream(streamChatDto.SessionId, assistantMsgId, userMsgId, streamChatDto.Query, false)
+	if stream == nil {
+		return &response.BizError{HttpStatus: http.StatusInternalServerError, Code: 500, Msg: "无法创建流状态"}
+	}
 
 	// 启动流式对话处理
-	go StreamChatStarter(userId, stream, reqBody, sessionID, resp)
+	go StreamChatStarter(streamChatDto.UserId, stream, streamChatDto.LastMsgID, streamChatDto.Query, streamChatDto.SessionId, streamChatDto.Resp)
 
-	dealStreamResponse(stream, false, req, resp)
-	log.Println("deal stream chat: new  done :", stream.MessageID)
+	return dealStreamResponse(stream, false, streamChatDto.Req, streamChatDto.Resp)
 }
 
 // StreamChatStarter 启动流式对话处理
-func StreamChatStarter(userId string, stream *StreamState, reqBody requests.StreamChatReq, sessionID string, resp *restful.Response) {
+func StreamChatStarter(userId string, stream *StreamState, tailMsgId string, query string, sessionID string, resp *restful.Response) {
 
 	// 构造最终prompt
-	prompt := buildFinalPrompt(userId, reqBody, sessionID)
+	prompt := buildFinalPrompt(userId, tailMsgId, sessionID, query)
 	_ = prompt
 	log.Println("Final Prompt:", prompt)
 
@@ -132,9 +120,9 @@ func StreamChatStarter(userId string, stream *StreamState, reqBody requests.Stre
 }
 
 // buildFinalPrompt 构建最终prompt
-func buildFinalPrompt(userId string, reqBody requests.StreamChatReq, sessionID string) string {
+func buildFinalPrompt(userId string, tailMsgId string, sessionID string, query string) string {
 	//构造历史上下文
-	history := buildHistoryContext(sessionID, reqBody.LastMsgID)
+	history := buildHistoryContext(sessionID, tailMsgId)
 
 	//查询session
 	session, err := GetSessionById(userId, sessionID)
@@ -143,20 +131,22 @@ func buildFinalPrompt(userId string, reqBody requests.StreamChatReq, sessionID s
 	}
 
 	//获取项目级别的prompt模板
-	project, err := GetProjectById(session.ProjectID)
-	if err != nil {
-		return ""
+	var customInstruction = ""
+	if session.ProjectID != "" {
+		project, err := GetProjectById(userId, session.ProjectID)
+		if err == nil {
+			customInstruction = project.CustomInstruction
+		}
 	}
 
 	// 合并历史上下文和当前查询
-	finalPrompt := "系统指令:" + project.CustomInstruction + "\n\n对话历史:" + history + "\n\n当前问题:" + reqBody.QueryInfo.Query
-
+	finalPrompt := "系统指令:" + customInstruction + "\n\n对话历史:" + history + "\n\n当前问题:" + query
 	return finalPrompt
 }
 
 // buildHistoryContext 构建历史上下文, 从lastMsgID开始, 直到根消息
-func buildHistoryContext(sessionID string, lastMsgID string) string {
-	if lastMsgID == "" {
+func buildHistoryContext(sessionID string, tailMsgId string) string {
+	if tailMsgId == "" {
 		return ""
 	}
 	// 从数据库查询历史消息
@@ -170,7 +160,7 @@ func buildHistoryContext(sessionID string, lastMsgID string) string {
 
 	// 构建历史上下文
 	var historyContext strings.Builder
-	var messageId = &lastMsgID
+	var messageId = &tailMsgId
 	for messageId != nil && msgMap[*messageId].ParentID != nil {
 		msg := msgMap[*messageId]
 		historyContext.WriteString(msg.Role + ": " + msg.Content + "\n")
@@ -231,7 +221,7 @@ func broadcastChunk(stream *StreamState, chunk StreamChunk) {
 }
 
 // dealStreamResponse 处理流式响应
-func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, resp *restful.Response) {
+func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, resp *restful.Response) error {
 	// 获取客户端ID，每次请求都生成一个新的ID，防止多个客户端用同一个id同时请求导致数据混乱
 	clientID := uuid.NewString()
 
@@ -242,8 +232,12 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 	writer.Header().Set("Connection", "keep-alive")
 	flusher, ok := writer.(http.Flusher)
 	if !ok {
-		http.Error(writer, "Streaming unsupported", http.StatusInternalServerError)
-		return
+		// http.Error(writer, "Streaming unsupported", http.StatusInternalServerError)
+		return &response.BizError{
+			HttpStatus: http.StatusInternalServerError,
+			Code:       500,
+			Msg:        "Streaming unsupported",
+		}
 	}
 
 	// 8. 发送连接成功事件
@@ -259,8 +253,12 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 	// 返回一个只读通道 chunkChan，用于接收 StreamChunk
 	chunkChan := GlobalStreamManager.RegisterClient(stream, clientID)
 	if chunkChan == nil {
-		resp.WriteError(http.StatusInternalServerError, errors.New("无法注册客户端"))
-		return
+		// resp.WriteError(http.StatusInternalServerError, errors.New("无法注册客户端"))
+		return &response.BizError{
+			HttpStatus: http.StatusInternalServerError,
+			Code:       500,
+			Msg:        "无法注册客户端",
+		}
 	}
 	// 10. 监听消息并推送
 	// 创建一个带有取消功能的上下文，用于监听客户端断开连接
@@ -281,7 +279,7 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 					"partial_content": stream.FullResponse,
 				})
 				log.Println("deal stream chat:  !ok  :", stream.MessageID)
-				return
+				return nil
 			}
 
 			// 处理结束标志
@@ -293,7 +291,7 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 					"is_final":     stream.IsCompleted,
 					"is_break":     stream.IsBreak,
 				})
-				return
+				return nil
 			}
 
 			// 发送普通的数据分块 (chunk)
@@ -310,26 +308,50 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 			// 客户端断开连接（如关闭浏览器标签页）
 			// 循环退出，触发 defer streamManager.UnregisterClient
 			log.Println("deal stream chat:  <-ctx.Done()  :", clientID)
-			return
+			return nil
 		}
 	}
 }
 
-func ResumeStreamChat(userId, sessionID string, reqBody requests.ResumeStreamChatReq, req *restful.Request, resp *restful.Response) {
+func ResumeStreamChat(userId, sessionID string, reqBody *requests.ResumeStreamChatReq, req *restful.Request, resp *restful.Response) error {
 	// 验证会话归属
 	if _, err := QuerySession(userId, sessionID); err != nil {
-		log.Println("failed to query session:", err)
-		response.WriteBizError(resp, err)
-		return
+		return err
 	}
 
 	// 获取或创建流状态
 	stream := GlobalStreamManager.GetOrCreateStream(sessionID, reqBody.MessageID, "", "", true)
 	if stream == nil {
-		resp.WriteError(http.StatusNotFound, errors.New("流不存在"))
-		return
+		return &response.BizError{
+			HttpStatus: http.StatusNotFound,
+			Code:       404,
+			Msg:        "流不存在",
+		}
 	}
-	dealStreamResponse(stream, true, req, resp)
-	log.Println("deal stream chat: resume done :", stream.MessageID)
+	return dealStreamResponse(stream, true, req, resp)
+
+}
+
+// CreateSessionAndChat 创建会话并开始对话
+func CreateSessionAndChat(userId string, reqBody *requests.CreateSessionAndChatReq, req *restful.Request, resp *restful.Response) error {
+	// 1. 创建会话
+	session, err := CreateSession(userId, reqBody.ProjectID, genTitleFromQuery(reqBody.Query))
+	if err != nil {
+		return err
+	}
+
+	streamChatDto := models.StreamChatDto{
+		UserId:    userId,
+		SessionId: session.ID,
+		LastMsgID: "",
+		ProjectID: reqBody.ProjectID,
+		Query:     reqBody.Query,
+		Files:     reqBody.Files,
+		Req:       req,
+		Resp:      resp,
+	}
+
+	// 2. 对话
+	return NewStreamChatInSession(streamChatDto)
 
 }

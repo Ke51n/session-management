@@ -1,7 +1,6 @@
 package service
 
 import (
-	"log"
 	"net/http"
 	my_models "session-demo/models"
 	"session-demo/response"
@@ -10,9 +9,8 @@ import (
 // 保存一条消息到数据库
 func CreateAndSaveMessage(msg *my_models.Message) error {
 	if err := Dbservice.DB.Create(msg).Error; err != nil {
-		return err
+		return response.WrapError(500, "创建消息失败", err)
 	}
-	log.Printf("创建消息成功: %v", msg)
 	return nil
 }
 
@@ -23,7 +21,7 @@ func ListMessagesBySession(userID, sessionID string) ([]my_models.Message, error
 		Order("created_at ASC").
 		Find(&messages).Error
 	if err != nil {
-		return nil, err
+		return nil, response.WrapError(500, "查询消息失败", err)
 	}
 	return messages, nil
 }
@@ -42,7 +40,7 @@ func GetMessageById(sessionID, messageID string) (*my_models.Message, error) {
 	err := Dbservice.DB.Where("id = ? AND session_id = ?", messageID, sessionID).
 		First(&message).Error
 	if err != nil {
-		return nil, &response.BizError{HttpStatus: http.StatusNotFound, Msg: err.Error()}
+		return nil, response.WrapError(http.StatusNotFound, "查询消息失败", err)
 	}
 	return &message, nil
 }

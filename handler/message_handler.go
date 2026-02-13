@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"log"
+	"net/http"
 	constant "session-demo/const"
+	"session-demo/models"
 	"session-demo/pkg/auth"
 	"session-demo/requests"
 	"session-demo/response"
@@ -10,10 +13,34 @@ import (
 	"github.com/emicklei/go-restful/v3"
 )
 
-// NewStreamChatHandler 新对话
-func NewStreamChatHandler(req *restful.Request, resp *restful.Response) {
+// NewChatHandler 新对话
+func NewChatHandler(req *restful.Request, resp *restful.Response) {
 
-	service.NewStreamChatInSession(req, resp)
+	reqBody, err := service.BindRequestBody[requests.StreamChatReq](req)
+	if err != nil {
+		response.WriteBizError(resp, err)
+		return
+	}
+
+	userId := auth.GetUserID(req)
+	sessionID := req.PathParameter("sessionId")
+
+	streamChatDto := models.StreamChatDto{
+		UserId:    userId,
+		SessionId: sessionID,
+		LastMsgID: reqBody.LastMsgID,
+		ProjectID: reqBody.ProjectId,
+		Query:     reqBody.QueryInfo.Query,
+		Files:     reqBody.QueryInfo.Files,
+		Req:       req,
+		Resp:      resp,
+	}
+
+	if err := service.NewStreamChatInSession(streamChatDto); err != nil {
+		response.WriteBizError(resp, err)
+		return
+	}
+	response.WriteSuccess(resp, http.StatusOK, nil)
 
 }
 
@@ -22,32 +49,35 @@ func ResumeStreamChatHandler(req *restful.Request, resp *restful.Response) {
 	sessionID := req.PathParameter("sessionId")
 	userId := auth.GetUserID(req)
 
-	//鉴权
-	_, err := service.QuerySession(userId, sessionID)
+	reqBody, err := service.BindRequestBody[requests.ResumeStreamChatReq](req)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
 
-	var reqBody requests.ResumeStreamChatReq
-	if err := req.ReadEntity(&reqBody); err != nil {
-		response.WriteBizError(resp, constant.ErrBadRequest)
+	err = service.ResumeStreamChat(userId, sessionID, reqBody, req, resp)
+	if err != nil {
+		response.WriteBizError(resp, err)
 		return
 	}
-
-	service.ResumeStreamChat(userId, sessionID, reqBody, req, resp)
+	response.WriteSuccess(resp, http.StatusOK, nil)
 }
 
 // BreakStreamChatHandler 中断流
 func BreakStreamChatHandler(req *restful.Request, resp *restful.Response) {
-	sessionID := req.PathParameter("sessionId")
-	var reqBody requests.BreakStreamChatReq
-	if err := req.ReadEntity(&reqBody); err != nil {
-		response.WriteBizError(resp, constant.ErrBadRequest)
+
+	// 1. 解析参数
+	reqBody, err := service.BindRequestBody[requests.BreakStreamChatReq](req)
+
+	// 2. 统一处理解析错误 (Handler 负责 HTTP 响应)
+	if err != nil {
+		// 这里你可以写入 400 Bad Request
+		response.WriteBizError(resp, err)
 		return
 	}
 
 	//验证会话归属
+	sessionID := req.PathParameter("sessionId")
 	userId := auth.GetUserID(req)
 	if _, err := service.QuerySession(userId, sessionID); err != nil {
 		response.WriteBizError(resp, err)
@@ -61,8 +91,9 @@ func BreakStreamChatHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 	if err != nil {
-		response.WriteBizError(resp, err)
+		log.Println("BreakStreamChatHandler error:", err)
+		response.WriteBizError(resp, constant.ErrInternalServer)
 		return
 	}
-	response.SuccessResp(nil)
+	response.WriteSuccess(resp, http.StatusOK, nil)
 }

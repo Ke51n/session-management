@@ -1,6 +1,8 @@
 package response
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"session-demo/models"
 
@@ -39,6 +41,26 @@ func (e *BizError) Error() string {
 	return e.Msg
 }
 
+// WrapError 是一个统一入口
+// 它做了三件事：
+// 1. 打印详细错误日志（供后台看）
+// 2. 包装成一个对外的 BizError（供前台看）
+// 3. 隐藏敏感细节
+func WrapError(businessCode int, publicMsg string, internalErr error) *BizError {
+	// 只有当 internalErr 不为 nil 时才处理
+	if internalErr == nil {
+		return nil
+	}
+	// 这里可以接入你项目的日志框架，自动带上堆栈信息
+	// 例如：log.Errorf("Internal Error: %+v", internalErr)
+	fmt.Printf("[ERROR] %v\n", internalErr)
+	return &BizError{
+		HttpStatus: http.StatusInternalServerError,
+		Code:       businessCode,
+		Msg:        publicMsg,
+	}
+}
+
 // 统一错误响应写入
 func WriteBizError(resp *restful.Response, err error) {
 	if bizErr, ok := err.(*BizError); ok {
@@ -48,11 +70,16 @@ func WriteBizError(resp *restful.Response, err error) {
 		})
 		return
 	}
+	log.Printf("Unhandled error type: %T, message: %s", err, err.Error())
 	// 非业务错误，统一视为内部错误，不暴露细节给前端
 	resp.WriteHeaderAndEntity(http.StatusInternalServerError, CommonResponse{
 		Code:    -1,
 		Message: "Internal Server Error",
 	})
+}
+
+func WriteSuccess(resp *restful.Response, httpStatus int, data any) {
+	resp.WriteHeaderAndEntity(httpStatus, SuccessResp(data))
 }
 
 // 查询某个项目下的所有会话响应结构

@@ -7,7 +7,7 @@ import (
 // ========== 请求结构 ==========
 //
 // 创建项目请求结构
-type CreateAndEditProjectReq struct {
+type CreateAndUpdateProjectReq struct {
 	Title string `json:"title"`
 	// 自定义指令
 	CustomInstruction string           `json:"custom_instruction"`
@@ -53,6 +53,7 @@ type UpdateSessionReq struct {
 
 // 流式对话请求结构
 type StreamChatReq struct {
+	ProjectId string         `json:"project_id"`
 	LastMsgID string         `json:"last_message_id"`
 	QueryInfo QueryInfoModel `json:"query_info"`
 }

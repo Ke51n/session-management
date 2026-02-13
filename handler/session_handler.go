@@ -1,223 +1,98 @@
 package handler
 
 import (
-	"log"
 	"net/http"
-	constant "session-demo/const"
-	"session-demo/models"
 	auth "session-demo/pkg/auth"
 	"session-demo/requests"
 	"session-demo/response"
 	"session-demo/service"
-	"strings"
-	"time"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/google/uuid"
 )
 
-// 创建一个会话并对话，sse流式响应CreateSessionStreamChatHandler
-func CreateSessionStreamChatHandler(req *restful.Request, resp *restful.Response) {
-
-	// 1. 设置 SSE Header
-	writer := resp.ResponseWriter
-
-	writer.Header().Set("Content-Type", "text/event-stream")
-	writer.Header().Set("Cache-Control", "no-cache")
-	writer.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := writer.(http.Flusher)
-	if !ok {
-		http.Error(writer, "Streaming unsupported", http.StatusInternalServerError)
-		response.WriteBizError(resp, constant.ErrInternalServer)
-		return
-	}
-	// 从header解析TOKEN（可选）
-	// 示例：从请求头中获取用户ID（假设有认证中间件设置）
+// 创建一个会话并对话，sse流式响应CreateSessioAndChatHandler
+func CreateSessioAndChatHandler(req *restful.Request, resp *restful.Response) {
 	userID := auth.GetUserID(req)
-	if userID == "" {
-		response.WriteBizError(resp, constant.ErrUnauthorized)
-		return
-	}
 
-	// 2. 解析请求体
-	var reqData requests.CreateSessionAndChatReq
-	if err := req.ReadEntity(&reqData); err != nil {
-		http.Error(writer, err.Error(), 400)
-		return
-	}
-	log.Printf("Received CreateSessionAndChatReq: %+v, userID: %s\n", reqData, userID)
-
-	// 2.0 可选：如果请求中包含 project_id，验证项目是否存在且属于用户
-	if reqData.ProjectID != "" {
-		var project models.Project
-		if service.Dbservice.DB.Where("id = ? AND user_id = ? AND deleted = ?",
-			reqData.ProjectID, userID, false).First(&project).Error != nil {
-			http.Error(writer, "project not found", 404)
-			return
-		}
-	}
-
-	// 2.1 获取标题
-	title := getTitleFromQuery(reqData.Query)
-	// 3. 创建 Session（存数据库）
-	session, err := service.CreateSession(userID, reqData.ProjectID, title)
+	// 1. 解析参数
+	reqData, err := service.BindRequestBody[requests.CreateSessionAndChatReq](req)
 	if err != nil {
-		http.Error(writer, err.Error(), 500)
+		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 用户消息写数据库
-	userMsgID := uuid.NewString()
-	userMsg := &models.Message{
-		ID:         userMsgID,
-		SessionID:  session.ID,
-		ParentID:   nil,
-		Content:    reqData.Query,
-		TokenCount: len(reqData.Query),
-		Status:     "completed",
-		Files:      reqData.Files,
-		Deleted:    false,
-
-		Role:  constant.RoleUser,
-		Steps: nil,
-	}
-	service.CreateAndSaveMessage(userMsg)
-	log.Println("Saved user message id:", userMsgID)
-
-	// 4. SSE 发送 session_id
-	assistantMsgID := uuid.NewString()
-
-	service.SendSSE(writer, flusher, "session", map[string]any{"session_id": session.ID, "message_id": assistantMsgID})
-
-	// 5. 模拟 AI 流式回复
-	reply := "今天上天气多云，15°C，适合外出游玩！记得带上防晒用品哦！如果你有其他问题，随时告诉我。"
-
-	for _, ch := range reply {
-
-		service.SendSSE(writer, flusher, "message", map[string]any{"content": string(ch)})
-
-		time.Sleep(50 * time.Millisecond)
+	//服务层
+	if err := service.CreateSessionAndChat(userID, reqData, req, resp); err != nil {
+		response.WriteBizError(resp, err)
+		return
 	}
 
-	// 6. 结束标记
-	service.SendSSE(writer, flusher, "done", map[string]any{"done": "true"})
+	response.WriteSuccess(resp, http.StatusOK, nil)
+	// //模型消息写数据库
+	// var steps []models.StepNode = []models.StepNode{
+	// 	{
+	// 		Type: "thought",
+	// 		Text: "我需要先思考一下。",
+	// 	},
+	// 	{
+	// 		Type: "plan",
+	// 		Text: "我计划先检索相关信息，然后生成回答。",
+	// 	}}
+	// if strings.Contains(reqData.Query, "天气") {
+	// 	steps = []models.StepNode{
+	// 		{
+	// 			Type: "tool_call",
+	// 			Name: "get_weather",
+	// 			Text: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
+	// 		},
+	// 		{
+	// 			Type: "tool_return",
+	// 			Name: "get_weather",
+	// 			Text: "天气信息：上海当前温度为15度，多云。",
+	// 		},
+	// 	}
+	// }
+	// if strings.Contains(reqData.Query, "苹果") {
+	// 	steps = append(steps, models.StepNode{
+	// 		Type: "tool_call",
+	// 		Name: "read_file",
+	// 		Text: "{'id':'tool_call_1','tool':'read_file','args':{'file_path':'/path/to/apple.txt'}}",
+	// 	})
+	// 	steps = append(steps, models.StepNode{
+	// 		Type: "tool_return",
+	// 		Name: "read_file",
+	// 		Text: "苹果是一种红色的水果，通常用于 pies。",
+	// 	})
+	// }
 
-	// 7. 关闭连接
-	log.Println("Completed CreateSessionStreamChatHandler for userID:", userID)
-
-	//模型消息写数据库
-	var steps []models.StepNode = []models.StepNode{
-		{
-			Type: "thought",
-			Text: "我需要先思考一下。",
-		},
-		{
-			Type: "plan",
-			Text: "我计划先检索相关信息，然后生成回答。",
-		}}
-	if strings.Contains(reqData.Query, "天气") {
-		steps = []models.StepNode{
-			{
-				Type: "tool_call",
-				Name: "get_weather",
-				Text: "{'id':'tool_call_1','tool':'get_weather','args':{'location':'Beijing'}}",
-			},
-			{
-				Type: "tool_return",
-				Name: "get_weather",
-				Text: "天气信息：上海当前温度为15度，多云。",
-			},
-		}
-	}
-	if strings.Contains(reqData.Query, "苹果") {
-		steps = append(steps, models.StepNode{
-			Type: "tool_call",
-			Name: "read_file",
-			Text: "{'id':'tool_call_1','tool':'read_file','args':{'file_path':'/path/to/apple.txt'}}",
-		})
-		steps = append(steps, models.StepNode{
-			Type: "tool_return",
-			Name: "read_file",
-			Text: "苹果是一种红色的水果，通常用于 pies。",
-		})
-	}
-	assistantMsg := &models.Message{
-		ID:         assistantMsgID,
-		SessionID:  session.ID,
-		ParentID:   &userMsgID,
-		Content:    reply,
-		TokenCount: len(reply),
-		Status:     "completed",
-		Files:      nil,
-		Deleted:    false,
-
-		Role:  constant.RoleAssistant,
-		Steps: steps,
-	}
-	service.CreateAndSaveMessage(assistantMsg)
-	log.Println("Saved assistant message id:", assistantMsgID)
-
-}
-
-// 从查询内容生成标题（简单截取前20字符）可以用更复杂的逻辑，比如llm总结，go协程异步，拿到后sse广播给所有客户端
-func getTitleFromQuery(query string) string {
-	runes := []rune(query) // 转为 rune 切片（每个元素是一个 Unicode 字符）
-	if len(runes) > 20 {
-		return string(runes[:20])
-	}
-	return query
 }
 
 // 查询某个会话的所有消息
 func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) {
 
 	userID := auth.GetUserID(req)
-	if userID == "" {
-		resp.WriteErrorString(400, "uid is required")
-		return
-	}
-
 	sessionID := req.PathParameter("sessionId")
 	// 调用服务层
 	messages, err := service.ListMessagesBySession(userID, sessionID)
 	if err != nil {
-		log.Println("failed to list messages:", err)
-		resp.WriteErrorString(http.StatusInternalServerError, "failed to list messages")
+		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 构造响应
-	result := response.ListMessagesResponse{
-		Data:    messages,
-		Success: true,
-	}
-
-	resp.WriteHeaderAndEntity(http.StatusOK, result)
+	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(messages))
 }
 
 func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	userID := auth.GetUserID(req)
-	if userID == "" {
-		return
-	}
-
 	// 调用服务层
 	sessions, err := service.ListSessionsNotInProject(userID)
 	if err != nil {
-		log.Println("failed to list sessions not in project:", err)
-		resp.WriteErrorString(http.StatusInternalServerError, "failed to list sessions not in project")
+		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 构造响应
-	result := response.ListSessionsResponse{
-		Data:    sessions,
-		Success: true,
-	}
-
-	resp.WriteHeaderAndEntity(http.StatusOK, result)
+	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(sessions))
 }
 
 // / MoveSessionToProjectHandler 移动一个会话到某个指定项目
@@ -225,77 +100,44 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
 	userID := auth.GetUserID(req)
-	if userID == "" {
-		return
-	}
-
 	sessionID := req.PathParameter("sessionId")
-	var reqData requests.MoveSessionToProjectReq
-	if err := req.ReadEntity(&reqData); err != nil {
-		log.Println("failed to read request body:", err)
-		resp.WriteErrorString(400, "invalid request body")
-		return
-	}
 
-	// 判断项目和用户是否存在
-	if reqData.ProjectID != "" {
-		project, err := service.GetProjectById(reqData.ProjectID)
-		if err != nil {
-			log.Println("project not found or user not authorized:", err)
-			resp.WriteErrorString(http.StatusNotFound, "project not found or user not authorized")
-			return
-		}
-		if project.UserID != userID {
-			log.Println("user not authorized to move session to project:", project.UserID, userID)
-			resp.WriteErrorString(http.StatusForbidden, "user not authorized to move session to project")
-			return
-		}
+	reqData, err := service.BindRequestBody[requests.MoveSessionToProjectReq](req)
+	if err != nil {
+		response.WriteBizError(resp, err)
+		return
 	}
 
 	// 调用服务层
-	err := service.MoveSessionToProject(userID, sessionID, reqData.ProjectID)
+	err = service.MoveSessionToProject(userID, sessionID, reqData.ProjectID)
 	if err != nil {
-		log.Println("failed to move session to project:", err)
-		resp.WriteErrorString(http.StatusInternalServerError, "failed to move session to project")
+		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 构造响应
-	result := response.MoveSessionToProjectResponse{
-		Success: true,
-	}
+	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
 
-	resp.WriteHeaderAndEntity(http.StatusOK, result)
 }
 
 func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
 	userID := auth.GetUserID(req)
-	if userID == "" {
-		return
-	}
-
 	sessionID := req.PathParameter("sessionId")
-	var reqData requests.UpdateSessionReq
-	if err := req.ReadEntity(&reqData); err != nil {
-		log.Println("failed to read request body:", err)
-		resp.WriteErrorString(400, "invalid request body")
+
+	reqData, err := service.BindRequestBody[requests.UpdateSessionReq](req)
+	if err != nil {
+		response.WriteBizError(resp, err)
 		return
 	}
 
 	// 调用服务层
-	err := service.UpdateSession(userID, sessionID, reqData.Title)
+	err = service.UpdateSession(userID, sessionID, reqData.Title)
 	if err != nil {
-		log.Println("failed to update session:", err)
-		resp.WriteErrorString(http.StatusInternalServerError, "failed to update session")
+		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 构造响应
-	result := response.UpdateSessionTitleResponse{
-		Success: true,
-	}
+	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
 
-	resp.WriteHeaderAndEntity(http.StatusOK, result)
 }
