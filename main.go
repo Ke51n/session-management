@@ -3,11 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"session-demo/pkg/auth"
-
-	"gorm.io/gorm"
 
 	"session-demo/handler"
 	"session-demo/response"
@@ -15,37 +12,37 @@ import (
 	"github.com/emicklei/go-restful/v3"
 )
 
-// 全局数据库实例
-var GlobalDB *gorm.DB
+// // 全局数据库实例
+// var GlobalDB *gorm.DB
 
-// 模拟LLM响应函数
-func mockLLMCall(prompt string) string {
-	// 这里模拟LLM调用，实际项目中替换为真实的API调用
-	log.Printf("调用LLM，Prompt长度: %d 字符", len(prompt))
+// // 模拟LLM响应函数
+// func mockLLMCall(prompt string) string {
+// 	// 这里模拟LLM调用，实际项目中替换为真实的API调用
+// 	log.Printf("调用LLM，Prompt长度: %d 字符", len(prompt))
 
-	// 模拟处理时间
-	time.Sleep(100 * time.Millisecond)
+// 	// 模拟处理时间
+// 	time.Sleep(100 * time.Millisecond)
 
-	// 简单的模拟回复
-	responses := []string{
-		"这是一个基于您历史对话生成的模拟回复。",
-		"根据您的上下文，我认为可以这样继续讨论。",
-		"从之前的对话来看，这个问题的解决方案可能是...",
-		"结合我们之前的交流，我的建议是...",
-		"基于历史上下文，我理解您想了解的是...",
-	}
+// 	// 简单的模拟回复
+// 	responses := []string{
+// 		"这是一个基于您历史对话生成的模拟回复。",
+// 		"根据您的上下文，我认为可以这样继续讨论。",
+// 		"从之前的对话来看，这个问题的解决方案可能是...",
+// 		"结合我们之前的交流，我的建议是...",
+// 		"基于历史上下文，我理解您想了解的是...",
+// 	}
 
-	// // 根据prompt内容返回不同的回复
-	// if strings.Contains(prompt, "你好") || strings.Contains(prompt, "hello") {
-	// 	return "你好！很高兴继续我们的对话。有什么我可以帮助您的吗？"
-	// }
-	// if strings.Contains(prompt, "天气") {
-	// 	return "根据我们之前的对话，您似乎对天气比较关心。今天天气不错，适合外出。"
-	// }
+// 	// // 根据prompt内容返回不同的回复
+// 	// if strings.Contains(prompt, "你好") || strings.Contains(prompt, "hello") {
+// 	// 	return "你好！很高兴继续我们的对话。有什么我可以帮助您的吗？"
+// 	// }
+// 	// if strings.Contains(prompt, "天气") {
+// 	// 	return "根据我们之前的对话，您似乎对天气比较关心。今天天气不错，适合外出。"
+// 	// }
 
-	// 默认回复
-	return responses[int(time.Now().Unix())%len(responses)]
-}
+// 	// 默认回复
+// 	return responses[int(time.Now().Unix())%len(responses)]
+// }
 
 // 	// 创建一些测试数据
 // 	// createTestData()
@@ -440,21 +437,20 @@ func mockLLMCall(prompt string) string {
 // }
 
 func main() {
+
+	// 修复 */* 问题
+	// restful.RegisterEntityAccessor("*/*", &restful.JsonEntityReader{})
+
 	ws := new(restful.WebService)
 	ws.Filter(auth.AuthFilter)
 	ws.
 		Path("/api/v1/applet/ai").
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON)
+		Consumes(restful.MIME_JSON, restful.MIME_XML).
+		Produces(restful.MIME_JSON, restful.MIME_XML)
 
 	// 路径参数模板（安全复用：restful 内部会复制参数）
 	projectIdParam := ws.PathParameter("projectId", "Project ID").DataType("string").Required(true)
 	sessionIdParam := ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)
-
-	// SSE 路由配置辅助函数
-	configureSSE := func(rb *restful.RouteBuilder) *restful.RouteBuilder {
-		return rb.Consumes(restful.MIME_JSON).Produces("text/event-stream")
-	}
 
 	//项目
 	//创建一个项目，指定标题（可选）
@@ -535,7 +531,9 @@ func main() {
 
 	//============================================流式接口================================
 	//创建一个会话并对话，sse流式响应
-	ws.Route(configureSSE(ws.POST("/sessions/stream")).
+	ws.Route(ws.POST("/sessions/stream").
+		Consumes(restful.MIME_JSON).
+		// Produces("text/event-stream").
 		To(handler.CreateSessioAndChatHandler).
 		Doc("Create session and chat (SSE)").
 		Param(ws.BodyParameter("request", "CreateSessionAndChatReq").
@@ -543,7 +541,9 @@ func main() {
 		Returns(200, "OK", nil))
 
 	//在已有会话中对话
-	ws.Route(configureSSE(ws.POST("/sessions/{sessionId}/stream")).
+	ws.Route(ws.POST("/sessions/{sessionId}/stream").
+		Consumes(restful.MIME_JSON).
+		// Produces("text/event-stream").
 		To(handler.NewChatHandler).
 		Doc("Chat in a session (SSE)").
 		Param(sessionIdParam).
@@ -556,9 +556,10 @@ func main() {
 		To(handler.ResumeStreamChatHandler).
 		Doc("Resume session chat (SSE)").
 		Consumes(restful.MIME_JSON).
-		Produces("text/event-stream").
+		// Produces("text/event-stream").
 		Param(ws.PathParameter("sessionId", "Session ID").DataType("string").Required(true)).
 		Param(ws.BodyParameter("request", "ResumeStreamChatReq").
+			// DataType("my_requests.ResumeStreamChatReq")).
 			DataType("requests.ResumeStreamChatReq")).
 		Returns(200, "OK", nil))
 

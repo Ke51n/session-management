@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log"
 	"net/http"
 	constant "session-demo/const"
 	"session-demo/response"
@@ -41,5 +42,6 @@ func BindRequestBody[T any](req *restful.Request) (*T, error) {
 	if err := req.ReadEntity(&body); err != nil {
 		return nil, response.WrapError(http.StatusBadRequest, "参数解析失败", err)
 	}
+	log.Println("BindRequestBody body:", body)
 	return &body, nil
 }

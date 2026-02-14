@@ -119,9 +119,9 @@ type MoveSessionToProjectResponse struct {
 	Success bool `json:"success"`
 }
 
-type UpdateSessionTitleResponse struct {
-	Success bool `json:"success"`
-}
+// type UpdateSessionTitleResponse struct {
+// 	Success bool `json:"success"`
+// }
 
 // BreakStreamChatResponse 中断流式对话响应结构
 type BreakStreamChatResponse struct {

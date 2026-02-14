@@ -46,20 +46,28 @@ func NewChatHandler(req *restful.Request, resp *restful.Response) {
 
 // ResumeStreamChatHandler 续传对话
 func ResumeStreamChatHandler(req *restful.Request, resp *restful.Response) {
+	//获取会话ID
 	sessionID := req.PathParameter("sessionId")
+	//获取用户ID
 	userId := auth.GetUserID(req)
 
+	//解析请求体
 	reqBody, err := service.BindRequestBody[requests.ResumeStreamChatReq](req)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
 
+	log.Printf("Resume request: sessionId=%s, body=%+v", sessionID, reqBody)
+
+	//调用服务层
 	err = service.ResumeStreamChat(userId, sessionID, reqBody, req, resp)
 	if err != nil {
+		log.Println("ResumeStreamChatHandler error:", err)
 		response.WriteBizError(resp, err)
 		return
 	}
+	//返回响应
 	response.WriteSuccess(resp, http.StatusOK, nil)
 }
 

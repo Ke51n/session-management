@@ -230,6 +230,8 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 	writer.Header().Set("Content-Type", "text/event-stream")
 	writer.Header().Set("Cache-Control", "no-cache")
 	writer.Header().Set("Connection", "keep-alive")
+	resp.Header().Set("Access-Control-Allow-Origin", "*")
+
 	flusher, ok := writer.(http.Flusher)
 	if !ok {
 		// http.Error(writer, "Streaming unsupported", http.StatusInternalServerError)
@@ -313,7 +315,9 @@ func dealStreamResponse(stream *StreamState, resume bool, req *restful.Request, 
 	}
 }
 
+// 恢复流式对话
 func ResumeStreamChat(userId, sessionID string, reqBody *requests.ResumeStreamChatReq, req *restful.Request, resp *restful.Response) error {
+	log.Println("ResumeStreamChat reqBody:", reqBody)
 	// 验证会话归属
 	if _, err := QuerySession(userId, sessionID); err != nil {
 		return err
