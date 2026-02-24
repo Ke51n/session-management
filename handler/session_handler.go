@@ -2,7 +2,7 @@ package handler
 
 import (
 	"net/http"
-	auth "session-demo/pkg/auth"
+	"session-demo/pkg/auth"
 	"session-demo/requests"
 	"session-demo/response"
 	"session-demo/service"
@@ -12,14 +12,13 @@ import (
 
 // 创建一个会话并对话，sse流式响应CreateSessioAndChatHandler
 func CreateSessioAndChatHandler(req *restful.Request, resp *restful.Response) {
-	userID := auth.GetUserID(req)
-
 	// 1. 解析参数
 	reqData, err := service.BindRequestBody[requests.CreateSessionAndChatReq](req)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
+	userID := auth.GetUserID(req)
 
 	//服务层
 	if err := service.CreateSessionAndChat(userID, reqData, req, resp); err != nil {
@@ -97,16 +96,15 @@ func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Respons
 
 // / MoveSessionToProjectHandler 移动一个会话到某个指定项目
 func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
-
-	// 从请求头中获取用户ID
-	userID := auth.GetUserID(req)
-	sessionID := req.PathParameter("sessionId")
-
 	reqData, err := service.BindRequestBody[requests.MoveSessionToProjectReq](req)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
+
+	// 从请求头中获取用户ID
+	userID := auth.GetUserID(req)
+	sessionID := req.PathParameter("sessionId")
 
 	// 调用服务层
 	err = service.MoveSessionToProject(userID, sessionID, reqData.ProjectID)
@@ -119,6 +117,7 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 
 }
 
+// 更新session配置
 func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID

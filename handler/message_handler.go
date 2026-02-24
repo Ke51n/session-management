@@ -13,7 +13,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 )
 
-// NewChatHandler 新对话
+// NewChatHandler 在已有会话中创建新对话
 func NewChatHandler(req *restful.Request, resp *restful.Response) {
 
 	reqBody, err := service.BindRequestBody[requests.StreamChatReq](req)
@@ -46,11 +46,6 @@ func NewChatHandler(req *restful.Request, resp *restful.Response) {
 
 // ResumeStreamChatHandler 续传对话
 func ResumeStreamChatHandler(req *restful.Request, resp *restful.Response) {
-	//获取会话ID
-	sessionID := req.PathParameter("sessionId")
-	//获取用户ID
-	userId := auth.GetUserID(req)
-
 	//解析请求体
 	reqBody, err := service.BindRequestBody[requests.ResumeStreamChatReq](req)
 	if err != nil {
@@ -58,6 +53,10 @@ func ResumeStreamChatHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
+	//获取会话ID
+	sessionID := req.PathParameter("sessionId")
+	//获取用户ID
+	userId := auth.GetUserID(req)
 	log.Printf("Resume request: sessionId=%s, body=%+v", sessionID, reqBody)
 
 	//调用服务层
@@ -76,7 +75,6 @@ func BreakStreamChatHandler(req *restful.Request, resp *restful.Response) {
 
 	// 1. 解析参数
 	reqBody, err := service.BindRequestBody[requests.BreakStreamChatReq](req)
-
 	// 2. 统一处理解析错误 (Handler 负责 HTTP 响应)
 	if err != nil {
 		// 这里你可以写入 400 Bad Request

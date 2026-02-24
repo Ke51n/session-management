@@ -46,7 +46,7 @@ type MoveSessionToProjectReq struct {
 	ProjectID string `json:"project_id"`
 }
 
-// 更新会话标题请求结构
+// 更新会话请求结构
 type UpdateSessionReq struct {
 	Title string `json:"title"`
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"log"
+	constant "session-demo/const"
 	my_models "session-demo/models"
 	"sync"
 	"time"
@@ -107,12 +108,12 @@ func (sm *StreamManager) CompleteStream(streamKey string) {
 			ID:         stream.MessageID,
 			SessionID:  stream.SessionID,
 			ParentID:   stream.ParentID,
-			Role:       "assistant",
+			Role:       constant.RoleAssistant,
 			Steps:      nil,
 			Files:      nil,
 			Content:    stream.FullResponse,
 			TokenCount: len(stream.FullResponse),
-			Status:     "completed",
+			Status:     constant.MessageStatusCompleted,
 			Deleted:    false,
 			Extension:  nil,
 			Metadata: map[string]any{

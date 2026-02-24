@@ -15,7 +15,6 @@ import (
 func CreateProjectHandler(req *restful.Request, resp *restful.Response) {
 	// 1. 解析参数
 	reqBody, err := service.BindRequestBody[requests.CreateAndUpdateProjectReq](req)
-
 	// 2. 统一处理解析错误 (Handler 负责 HTTP 响应)
 	if err != nil {
 		response.WriteBizError(resp, err)
@@ -34,18 +33,15 @@ func CreateProjectHandler(req *restful.Request, resp *restful.Response) {
 
 // 更新项目
 func UpdateProjectHandler(req *restful.Request, resp *restful.Response) {
-	projectID := req.PathParameter("projectId")
-
 	// 1. 解析参数
 	reqBody, err := service.BindRequestBody[requests.CreateAndUpdateProjectReq](req)
-
 	// 2. 统一处理解析错误 (Handler 负责 HTTP 响应)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
 
-	// 从请求头中获取用户ID
+	projectID := req.PathParameter("projectId")
 	userID := auth.GetUserID(req)
 
 	// 调用服务层
@@ -60,8 +56,6 @@ func UpdateProjectHandler(req *restful.Request, resp *restful.Response) {
 // 删除一个项目
 func DeleteProjectHandler(req *restful.Request, resp *restful.Response) {
 	projectID := req.PathParameter("projectId")
-
-	// 从请求头中获取用户ID
 	userID := auth.GetUserID(req)
 
 	// 调用服务层
@@ -93,10 +87,10 @@ func ListSessionsHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
 	userID := auth.GetUserID(req)
-	projectIDStr := req.PathParameter("projectId")
+	projectID := req.PathParameter("projectId")
 
 	// 调用服务层
-	sessions, err := service.ListByProject(userID, projectIDStr)
+	sessions, err := service.ListByProject(userID, projectID)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
