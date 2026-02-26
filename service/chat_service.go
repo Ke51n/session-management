@@ -143,7 +143,7 @@ func buildFinalPrompt(userId string, tailMsgId string, sessionID string, query s
 	}
 
 	// 合并历史上下文和当前查询
-	finalPrompt := "系统指令:" + customInstruction + "\n\n对话历史:" + history + "\n\n当前问题:" + query
+	finalPrompt := "系统指令:\n" + customInstruction + "\n\n对话历史:\n" + history + "\n\n当前问题:\n" + query
 	return finalPrompt
 }
 
@@ -154,7 +154,7 @@ func buildHistoryContext(sessionID string, tailMsgId string) string {
 	}
 	// 从数据库查询历史消息
 	var messages []models.Message
-	Dbservice.DB.Where("session_id = ?", sessionID).Order("id").Find(&messages)
+	Dbservice.DB.Where("session_id = ? AND deleted = ?", sessionID, false).Find(&messages)
 
 	msgMap := make(map[string]models.Message)
 	for _, msg := range messages {
@@ -162,12 +162,22 @@ func buildHistoryContext(sessionID string, tailMsgId string) string {
 	}
 
 	// 构建历史上下文
-	var historyContext strings.Builder
+	var historyMsgs []models.Message
+
 	var messageId = &tailMsgId
-	for messageId != nil && msgMap[*messageId].ParentID != nil {
-		msg := msgMap[*messageId]
-		historyContext.WriteString(msg.Role + ": " + msg.Content + "\n")
+	for messageId != nil {
+		msg, exist := msgMap[*messageId]
+		if !exist {
+			break
+		}
+		historyMsgs = append(historyMsgs, msg)
 		messageId = msg.ParentID
+	}
+	// 反转切片顺序
+	var historyContext strings.Builder
+	for i := len(historyMsgs) - 1; i >= 0; i-- {
+		msg := historyMsgs[i]
+		historyContext.WriteString(msg.Role + ": " + msg.Content + "\n")
 	}
 
 	return historyContext.String()
@@ -178,7 +188,7 @@ func streamChatInner(stream *StreamState, prompt string, sessionID string) {
 	// stream := my_models.StreamChat(prompt)
 
 	// 5. 模拟 AI 流式回复
-	reply := `春江潮水连海平，海上明月共潮生①。
+	reply := `现在时间是` + time.Now().Format("2006-01-02 15:04:05") + `，春江潮水连海平，海上明月共潮生①。
 	滟滟随波千万里②，何处春江无月明！
 	江流宛转绕芳甸③，月照花林皆似霰④。
 	空里流霜不觉飞⑤，汀上白沙看不见⑥。
