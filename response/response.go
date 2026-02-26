@@ -1,7 +1,6 @@
 package response
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"session-demo/models"
@@ -53,7 +52,7 @@ func WrapError(businessCode int, publicMsg string, internalErr error) *BizError 
 	}
 	// 这里可以接入你项目的日志框架，自动带上堆栈信息
 	// 例如：log.Errorf("Internal Error: %+v", internalErr)
-	fmt.Printf("[ERROR] %v\n", internalErr)
+	log.Printf("[ERROR] %v\n", internalErr)
 	return &BizError{
 		HttpStatus: http.StatusInternalServerError,
 		Code:       businessCode,
@@ -90,7 +89,6 @@ type ListSessionsResponse struct {
 
 // 创建项目响应结构
 type CreateOrEditProjectResponse struct {
-	Success   bool   `json:"success"`
 	ProjectID string `json:"project_id"`
 }
 
@@ -110,8 +108,8 @@ type DeleteProjectResponse struct {
 	Success bool `json:"success"`
 }
 type ListMessagesResponse struct {
-	Data    []models.Message `json:"data"`
-	Success bool             `json:"success"`
+	Messages         []models.Message `json:"messages"`
+	CurrentMessageId string           `json:"current_message_id"`
 }
 
 // MoveSessionToProjectResponse 移动会话到项目响应结构
@@ -127,4 +125,8 @@ type MoveSessionToProjectResponse struct {
 type BreakStreamChatResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+type CreateProjectResponse struct {
+	ProjectID string `json:"project_id"`
 }

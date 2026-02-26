@@ -175,8 +175,8 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 	return newAssistantMsg, nil
 }
 
-// ListByProject 列出某个项目下的所有会话
-func ListByProject(userID string, projectID string) ([]models.Session, error) {
+// ListSessionsInProject 列出某个项目下的所有会话
+func ListSessionsInProject(userID string, projectID string) ([]models.Session, error) {
 	if projectID == "" {
 		return nil, &response.BizError{HttpStatus: http.StatusBadRequest, Code: 400, Msg: "项目ID不能为空"}
 	}
@@ -188,6 +188,17 @@ func ListByProject(userID string, projectID string) ([]models.Session, error) {
 	}
 	return sessions, nil
 
+}
+
+// ListAllSessions 列出用户的所有会话
+func ListAllSessions(userID string) ([]models.Session, error) {
+	// 查询数据库
+	var sessions []models.Session
+	err := Dbservice.DB.Where("user_id = ? AND deleted = ?", userID, false).Find(&sessions).Error
+	if err != nil {
+		return nil, response.WrapError(500, "查询会话失败", err)
+	}
+	return sessions, nil
 }
 
 // 创建会话
@@ -289,4 +300,20 @@ func genTitleFromQuery(query string) string {
 		return string(runes[:20])
 	}
 	return query
+}
+
+func DeleteSession(userID, sessionID string) error {
+	// 验证会话归属
+	var conv models.Session
+	if err := Dbservice.DB.Where("id = ? AND user_id = ?", sessionID, userID).First(&conv).Error; err != nil {
+		return response.WrapError(500, "查询会话失败", err)
+	}
+
+	// 删除会话
+	conv.Deleted = true
+	conv.UpdatedAt = time.Now()
+	if err := Dbservice.DB.Save(&conv).Error; err != nil {
+		return response.WrapError(500, "删除会话失败", err)
+	}
+	return nil
 }

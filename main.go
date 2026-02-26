@@ -3,8 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
+	"reflect"
 
 	"session-demo/pkg/auth"
+	"session-demo/requests"
 
 	"session-demo/handler"
 	"session-demo/response"
@@ -465,7 +467,7 @@ func main() {
 		Doc("Update a project title").
 		Param(projectIdParam).
 		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("requests.CreateAndEditProjectReq")).
-		Returns(200, "OK", response.UpdateProjectResponse{}).
+		Returns(200, "OK", response.CreateOrEditProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
 	//查询所有项目
@@ -482,7 +484,7 @@ func main() {
 		Returns(400, "Bad Request", nil))
 
 	// 查询某个项目下的所有会话
-	ws.Route(ws.GET("/projects/{projectId}/sessions").To(handler.ListSessionsHandler).
+	ws.Route(ws.GET("/projects/{projectId}/sessions").To(handler.ListProjectSessionsHandler).
 		Doc("List all sessions under a project").
 		Param(projectIdParam).
 		Returns(200, "OK", response.CommonResponse{}).
@@ -491,6 +493,21 @@ func main() {
 		Returns(404, "Not Found", nil))
 
 	//会话
+	// 查询所有会话
+	ws.Route(ws.GET("/sessions").To(handler.ListAllSessionsHandler).
+		Doc("List all sessions").
+		Returns(200, "OK", response.CommonResponse{}).
+		Returns(401, "Unauthorized", nil).
+		Returns(403, "Forbidden", nil).
+		Returns(404, "Not Found", nil))
+	//删除一个会话
+	ws.Route(ws.DELETE("/sessions/{sessionId}").To(handler.DeleteSessionHandler).
+		Doc("Delete a session").
+		Param(sessionIdParam).
+		Returns(200, "OK", response.CommonResponse{}).
+		Returns(204, "No Content", nil).
+		Returns(400, "Bad Request", nil))
+
 	//修改会话标题
 	ws.Route(ws.PATCH("/sessions/{sessionId}").To(handler.UpdateSessionHandler).
 		Doc("Update a session title").
@@ -529,6 +546,16 @@ func main() {
 			DataType("requests.BreakStreamChatReq")).
 		Returns(200, "OK", response.BreakStreamChatResponse{}))
 
+	//消息
+	//删除一条消息以及后续消息
+	ws.Route(ws.DELETE("/sessions/{sessionId}/messages/{messageId}").To(handler.DeleteMessageHandler).
+		Doc("Delete a message").
+		Param(ws.PathParameter("messageId", "Message ID").DataType("string").Required(true)).
+		Param(sessionIdParam).
+		Returns(200, "OK", nil).
+		Returns(204, "No Content", nil).
+		Returns(400, "Bad Request", nil))
+
 	//============================================流式接口================================
 	//创建一个会话并对话，sse流式响应
 	ws.Route(ws.POST("/sessions/stream").
@@ -537,7 +564,7 @@ func main() {
 		To(handler.CreateSessioAndChatHandler).
 		Doc("Create session and chat (SSE)").
 		Param(ws.BodyParameter("request", "CreateSessionAndChatReq").
-			DataType("requests.CreateSessionAndChatReq")).
+			DataType(reflect.TypeFor[requests.CreateSessionAndChatReq]().String())).
 		Returns(200, "OK", nil))
 
 	//在已有会话中对话
@@ -562,15 +589,6 @@ func main() {
 			// DataType("my_requests.ResumeStreamChatReq")).
 			DataType("requests.ResumeStreamChatReq")).
 		Returns(200, "OK", nil))
-
-	//resume接口
-	// ws.Route(configureSSE(ws.POST("/sessions/{sessionId}/stream/resume")).
-	// 	To(handler.ResumeStreamChatHandler).
-	// 	Doc("Resume session chat (SSE)").
-	// 	Param(sessionIdParam).
-	// 	Param(ws.BodyParameter("request", "ResumeStreamChatReq").
-	// 		DataType("requests.ResumeStreamChatReq")).
-	// 	Returns(200, "OK", nil))
 
 	restful.Add(ws)
 	restful.EnableTracing(true)

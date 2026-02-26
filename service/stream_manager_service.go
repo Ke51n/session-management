@@ -104,26 +104,13 @@ func (sm *StreamManager) CompleteStream(streamKey string) {
 			delete(stream.Clients, clientID)
 		}
 		//消息入库
-		msg := &my_models.Message{
-			ID:         stream.MessageID,
-			SessionID:  stream.SessionID,
-			ParentID:   stream.ParentID,
-			Role:       constant.RoleAssistant,
-			Steps:      nil,
-			Files:      nil,
-			Content:    stream.FullResponse,
-			TokenCount: len(stream.FullResponse),
-			Status:     constant.MessageStatusCompleted,
-			Deleted:    false,
-			Extension:  nil,
-			Metadata: map[string]any{
-				"model":     "mock_llm",
-				"stream":    true,
-				"resumable": true,
-			},
-		}
-		if err := updateMessageById(msg); err != nil {
-			log.Printf("CreateAndSaveMessage failed: %v", err)
+		log.Printf("CompleteStream，最终消息入库: %s", stream.MessageID)
+		if err := updateMessageFields(stream.MessageID, map[string]any{
+			"content":     stream.FullResponse,
+			"token_count": len(stream.FullResponse),
+			"status":      constant.MessageStatusCompleted,
+		}); err != nil {
+			log.Printf("updateMessageFields failed: %v", err)
 		}
 		//删除流
 		delete(sm.Streams, streamKey)

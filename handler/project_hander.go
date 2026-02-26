@@ -28,7 +28,7 @@ func CreateProjectHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusCreated, response.SuccessResp(project.ID))
+	response.WriteSuccess(resp, http.StatusCreated, response.CreateProjectResponse{ProjectID: project.ID})
 }
 
 // 更新项目
@@ -50,7 +50,7 @@ func UpdateProjectHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
+	response.WriteSuccess(resp, http.StatusOK, response.CreateOrEditProjectResponse{ProjectID: projectID})
 }
 
 // 删除一个项目
@@ -63,7 +63,7 @@ func DeleteProjectHandler(req *restful.Request, resp *restful.Response) {
 		response.WriteBizError(resp, err)
 		return
 	}
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
+	response.WriteSuccess(resp, http.StatusOK, nil)
 }
 
 // 查询所有项目
@@ -79,23 +79,23 @@ func ListProjectsHandler(req *restful.Request, resp *restful.Response) {
 	}
 
 	// 构造响应
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(projects))
+	response.WriteSuccess(resp, http.StatusOK, projects)
 }
 
 // 查询某个项目下的所有会话
-func ListSessionsHandler(req *restful.Request, resp *restful.Response) {
+func ListProjectSessionsHandler(req *restful.Request, resp *restful.Response) {
 
 	// 从请求头中获取用户ID
 	userID := auth.GetUserID(req)
 	projectID := req.PathParameter("projectId")
 
 	// 调用服务层
-	sessions, err := service.ListByProject(userID, projectID)
+	sessions, err := service.ListSessionsInProject(userID, projectID)
 	if err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
 
 	// 构造响应
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(sessions))
+	response.WriteSuccess(resp, http.StatusOK, sessions)
 }

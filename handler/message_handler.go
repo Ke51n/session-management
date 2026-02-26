@@ -35,12 +35,13 @@ func NewChatHandler(req *restful.Request, resp *restful.Response) {
 		Req:       req,
 		Resp:      resp,
 	}
+	log.Printf("NewChatHandler request: sessionId=%s, DTO=%+v", sessionID, streamChatDto)
 
 	if err := service.NewStreamChatInSession(streamChatDto); err != nil {
 		response.WriteBizError(resp, err)
 		return
 	}
-	response.WriteSuccess(resp, http.StatusOK, nil)
+	// response.WriteSuccess(resp, http.StatusOK, nil)
 
 }
 
@@ -67,7 +68,7 @@ func ResumeStreamChatHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 	//返回响应
-	response.WriteSuccess(resp, http.StatusOK, nil)
+	// response.WriteSuccess(resp, http.StatusOK, nil)
 }
 
 // BreakStreamChatHandler 中断流
@@ -99,6 +100,32 @@ func BreakStreamChatHandler(req *restful.Request, resp *restful.Response) {
 	if err != nil {
 		log.Println("BreakStreamChatHandler error:", err)
 		response.WriteBizError(resp, constant.ErrInternalServer)
+		return
+	}
+	response.WriteSuccess(resp, http.StatusOK, nil)
+}
+
+func DeleteMessageHandler(req *restful.Request, resp *restful.Response) {
+	// 1. 解析参数
+	messageID := req.PathParameter("messageId")
+	// 2. 统一处理解析错误 (Handler 负责 HTTP 响应)
+	if messageID == "" {
+		response.WriteBizError(resp, constant.ErrInvalidMessageID)
+		return
+	}
+
+	//验证会话归属
+	sessionID := req.PathParameter("sessionId")
+	userId := auth.GetUserID(req)
+	if _, err := service.QuerySession(userId, sessionID); err != nil {
+		response.WriteBizError(resp, err)
+		return
+	}
+
+	//删除消息
+	if err := service.DeleteMessage(sessionID, messageID); err != nil {
+		log.Println("DeleteMessageHandler error:", err)
+		response.WriteBizError(resp, err)
 		return
 	}
 	response.WriteSuccess(resp, http.StatusOK, nil)

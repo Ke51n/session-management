@@ -21,6 +21,6 @@ func BindRequestBody[T any](req *restful.Request) (*T, error) {
 	if err := req.ReadEntity(&body); err != nil {
 		return nil, response.WrapError(http.StatusBadRequest, "参数解析失败", err)
 	}
-	log.Println("BindRequestBody body:", body)
+	log.Printf("BindRequestBody body:%v", body)
 	return &body, nil
 }

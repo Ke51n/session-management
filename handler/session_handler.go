@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"session-demo/pkg/auth"
 	"session-demo/requests"
@@ -26,7 +27,7 @@ func CreateSessioAndChatHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, nil)
+	// response.WriteSuccess(resp, http.StatusOK, nil)
 	// //模型消息写数据库
 	// var steps []models.StepNode = []models.StepNode{
 	// 	{
@@ -78,7 +79,16 @@ func ListMessagesBySessionHandler(req *restful.Request, resp *restful.Response) 
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(messages))
+	currentMsgId := ""
+	if len(messages) > 0 {
+		currentMsgId = messages[len(messages)-1].ID
+	}
+	listMessagesResponse := response.ListMessagesResponse{
+		Messages:         messages,
+		CurrentMessageId: currentMsgId,
+	}
+
+	response.WriteSuccess(resp, http.StatusOK, listMessagesResponse)
 }
 
 func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Response) {
@@ -91,7 +101,7 @@ func ListSessionsNotInProjectHandler(req *restful.Request, resp *restful.Respons
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(sessions))
+	response.WriteSuccess(resp, http.StatusOK, sessions)
 }
 
 // / MoveSessionToProjectHandler 移动一个会话到某个指定项目
@@ -113,7 +123,7 @@ func MoveSessionToProjectHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
+	response.WriteSuccess(resp, http.StatusOK, nil)
 
 }
 
@@ -137,6 +147,34 @@ func UpdateSessionHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.SuccessResp(nil))
+	response.WriteSuccess(resp, http.StatusOK, nil)
 
+}
+func ListAllSessionsHandler(req *restful.Request, resp *restful.Response) {
+
+	userID := auth.GetUserID(req)
+	// 调用服务层
+	sessions, err := service.ListAllSessions(userID)
+	if err != nil {
+		response.WriteBizError(resp, err)
+		return
+	}
+
+	response.WriteSuccess(resp, http.StatusOK, sessions)
+}
+
+func DeleteSessionHandler(req *restful.Request, resp *restful.Response) {
+
+	userID := auth.GetUserID(req)
+	sessionID := req.PathParameter("sessionId")
+
+	// 调用服务层,并删除会话中的所有消息，不删也没关系，访问不到了TODO:
+	err := service.DeleteSession(userID, sessionID)
+	if err != nil {
+		response.WriteBizError(resp, err)
+		return
+	}
+	log.Printf("删除会话成功: %s", sessionID)
+
+	response.WriteSuccess(resp, http.StatusOK, nil)
 }

@@ -18,7 +18,7 @@ func getUserIdFromHeader(req *restful.Request) string {
 	v := req.Attribute("user_id")
 	userID, ok := v.(string)
 	if !ok || userID == "" {
-		log.Println("user_id is missing or invalid, userID:1", userID)
+		log.Println("user_id is missing or invalid, userID=", userID)
 		return ""
 	}
 	return userID

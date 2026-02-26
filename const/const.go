@@ -7,7 +7,9 @@ var (
 	RoleAssistant = "assistant"
 
 	// MessageStatusCompleted 消息完成状态
-	MessageStatusCompleted = "completed"
+	MessageStatusCompleted = "COMPLETED"
 	// MessageStatusProcessing 消息处理中状态
-	MessageStatusProcessing = "processing"
+	MessageStatusProcessing = "PROCESSING"
+	// MessageStatusInterrupted 消息中断状态
+	MessageStatusInterrupted = "INTERRUPTED"
 )

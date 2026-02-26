@@ -67,6 +67,8 @@ func NewStreamChatInSession(streamChatDto models.StreamChatDto) error {
 	if err := CreateAndSaveMessage(userMsg); err != nil {
 		return err
 	}
+	log.Printf("保存用户消息成功 userMsgId=%s", userMsgId)
+
 	assistantMsgId := uuid.NewString()
 	//保存助手消息占位,标识processing
 	assistantMsg := &models.Message{
@@ -91,6 +93,7 @@ func NewStreamChatInSession(streamChatDto models.StreamChatDto) error {
 	if err := CreateAndSaveMessage(assistantMsg); err != nil {
 		return err
 	}
+	log.Printf("保存助手消息占位成功 assistantMsgId=%s", assistantMsgId)
 
 	//获取流
 	stream := GlobalStreamManager.GetOrCreateStream(streamChatDto.SessionId, assistantMsgId, userMsgId, streamChatDto.Query, false)
@@ -196,7 +199,7 @@ func streamChatInner(stream *StreamState, prompt string, sessionID string) {
 			Content: string(ch),
 		}
 		broadcastChunk(stream, chunk)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 	GlobalStreamManager.CompleteStream(stream.SessionID + "_" + stream.MessageID)
 	// 6. 结束标记
@@ -212,7 +215,7 @@ func broadcastChunk(stream *StreamState, chunk StreamChunk) {
 		case clientChan <- chunk: // 只读取map，不修改它
 			// 发送成功
 		default:
-			log.Println("Client channel is full, skipping")
+			log.Println("Client channel is full, skipping chunk:", chunk)
 			// 客户端可能已断开，跳过
 			// 即使这里发现客户端有问题，也不立即删除
 			// 可以标记或异步处理

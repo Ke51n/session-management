@@ -172,14 +172,14 @@ type File struct {
 }
 
 // ToolCall 助手调用工具的记录
-type ToolCall struct {
-	ID       string `json:"id"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"` // JSON string
-	} `json:"function"`
-	Output string `json:"output"` // 工具执行结果（可选）
-}
+// type ToolCall struct {
+// 	ID       string `json:"id"`
+// 	Function struct {
+// 		Name      string `json:"name"`
+// 		Arguments string `json:"arguments"` // JSON string
+// 	} `json:"function"`
+// 	Output string `json:"output"` // 工具执行结果（可选）
+// }
 
 // BeforeCreate 钩子函数，在创建记录前调用
 func (s *Session) BeforeCreate(tx *gorm.DB) error {

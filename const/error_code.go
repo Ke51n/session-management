@@ -24,6 +24,9 @@ var (
 	ErrQueryMessageError = &response.BizError{HttpStatus: http.StatusNotFound, Code: 404, Msg: "Query Message Error"}
 	// 创建消息错误
 	ErrCreateMessageError = &response.BizError{HttpStatus: http.StatusInternalServerError, Code: 500, Msg: "Create Message Error"}
+
+	// 无效的消息ID错误
+	ErrInvalidMessageID = &response.BizError{HttpStatus: http.StatusBadRequest, Code: 400, Msg: "Invalid Message ID"}
 )
 
 func BuildBizError(httpStatus int, code int, msg string) *response.BizError {
