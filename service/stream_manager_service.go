@@ -15,6 +15,8 @@ type StreamState struct {
 	MessageID    string                      `json:"message_id"`    // 消息ID
 	ParentID     *string                     `json:"parent_id"`     // 父消息ID
 	Query        string                      `json:"query"`         // 用户查询
+	Steps        []my_models.StepNode        `json:"steps"`         // 所有步骤
+	Files        []my_models.File            `json:"files"`         // 所有文件
 	FullResponse string                      `json:"full_response"` // 完整响应（逐步构建）
 	Chunks       []string                    `json:"chunks"`        // 所有chunk
 	IsBreak      bool                        `json:"is_break"`      // 是否中断
@@ -197,7 +199,9 @@ func (sm *StreamManager) BreakStream(sessionID, messageID string) (bool, error) 
 	sm.Mu.Lock()
 	defer sm.Mu.Unlock()
 
-	if stream, exists := sm.Streams[sessionID+"_"+messageID]; exists {
+	streamKey := sessionID + "_" + messageID
+
+	if stream, exists := sm.Streams[streamKey]; exists {
 		stream.IsBreak = true
 		stream.UpdatedAt = time.Now()
 
@@ -208,21 +212,21 @@ func (sm *StreamManager) BreakStream(sessionID, messageID string) (bool, error) 
 			delete(stream.Clients, clientID)
 		}
 		//删除流
-		delete(sm.Streams, sessionID+"_"+messageID)
+		delete(sm.Streams, streamKey)
 
 		//消息入库
 		msg := &my_models.Message{
 			ID:         stream.MessageID,
 			SessionID:  stream.SessionID,
 			ParentID:   stream.ParentID,
-			Role:       "assistant",
-			Steps:      nil,
-			Files:      nil,
+			Role:       constant.RoleAssistant,
+			Steps:      stream.Steps,
+			Files:      stream.Files,
 			Content:    stream.FullResponse,
 			TokenCount: len(stream.FullResponse),
 			CreatedAt:  stream.CreatedAt,
 			UpdatedAt:  time.Now(),
-			Status:     "break",
+			Status:     constant.MessageStatusInterrupted,
 			Deleted:    false,
 			Extension:  nil,
 			Metadata: map[string]any{

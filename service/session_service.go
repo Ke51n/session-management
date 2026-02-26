@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	constant "session-demo/const"
 	"session-demo/models"
 	"session-demo/response"
 	"time"
@@ -104,13 +105,13 @@ func (s *DBService) Regenerate(userID, sessionID, parentMessageID string) (*mode
 	if err := s.DB.Where("id = ? AND session_id = ?", parentMessageID, sessionID).First(&parentMsg).Error; err != nil {
 		return nil, errors.New("parent message not found")
 	}
-	if parentMsg.Role != "user" {
+	if parentMsg.Role != constant.RoleUser {
 		return nil, errors.New("can only regenerate after user message")
 	}
 
 	// 查找是否已有 version_group_id，应该是有的，它们的version_group_id相同
 	var existing models.Message
-	if err := s.DB.Where("parent_id = ? AND role = 'assistant'", parentMessageID).First(&existing).Error; err != nil {
+	if err := s.DB.Where("parent_id = ? AND role = ?", parentMessageID, constant.RoleAssistant).First(&existing).Error; err != nil {
 		return nil, errors.New("no existing assistant message found")
 	}
 
@@ -126,7 +127,7 @@ func (s *DBService) Regenerate(userID, sessionID, parentMessageID string) (*mode
 	modelResponse := "这是重新生成的回答。时间戳：" + time.Now().Format(time.RFC3339)
 
 	// 保存新回答
-	newMsg, err := s.CreateMessage(sessionID, &parentMessageID, "assistant", modelResponse)
+	newMsg, err := s.CreateMessage(sessionID, &parentMessageID, constant.RoleAssistant, modelResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -145,12 +146,12 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 	if err := s.DB.Where("id = ? AND session_id = ?", targetMessageID, sessionID).First(&targetMsg).Error; err != nil {
 		return nil, errors.New("target message not found")
 	}
-	if targetMsg.Role != "user" {
+	if targetMsg.Role != constant.RoleUser {
 		return nil, errors.New("can only edit user messages")
 	}
 
 	// 创建新 user 消息（继承原 parent）
-	newUserMsg, err := s.CreateMessage(sessionID, targetMsg.ParentID, "user", newContent)
+	newUserMsg, err := s.CreateMessage(sessionID, targetMsg.ParentID, constant.RoleUser, newContent)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (s *DBService) EditAndResend(userID, sessionID, targetMessageID, newContent
 	modelResponse := "这是基于修改后问题的回答。"
 
 	// 保存新 assistant 消息
-	newAssistantMsg, err := s.CreateMessage(sessionID, &newUserMsg.ID, "assistant", modelResponse)
+	newAssistantMsg, err := s.CreateMessage(sessionID, &newUserMsg.ID, constant.RoleAssistant, modelResponse)
 	if err != nil {
 		return nil, err
 	}
