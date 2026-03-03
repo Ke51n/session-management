@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	constant "session-demo/const"
-	"session-demo/models"
-	"session-demo/response"
+	constant "session-management/const"
+	"session-management/models"
+	"session-management/response"
 	"time"
 
 	"github.com/google/uuid"

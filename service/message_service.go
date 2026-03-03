@@ -3,9 +3,9 @@ package service
 import (
 	"fmt"
 	"net/http"
-	constant "session-demo/const"
-	my_models "session-demo/models"
-	"session-demo/response"
+	constant "session-management/const"
+	my_models "session-management/models"
+	"session-management/response"
 )
 
 // 保存一条消息到数据库

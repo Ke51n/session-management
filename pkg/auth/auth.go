@@ -3,7 +3,7 @@ package auth
 import (
 	"log"
 	"net/http"
-	response "session-demo/response"
+	response "session-management/response"
 
 	"github.com/emicklei/go-restful/v3"
 )

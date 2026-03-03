@@ -1,7 +1,7 @@
 package utils
 
 // import (
-// 	"session-demo/response"
+// 	"session-management/response"
 
 // 	"github.com/emicklei/go-restful/v3"
 // )

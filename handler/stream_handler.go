@@ -6,8 +6,8 @@ package handler
 // 	"encoding/json"
 // 	"fmt"
 // 	"net/http"
-// 	my_models "session-demo/models"
-// 	my_service "session-demo/service"
+// 	my_models "session-management/models"
+// 	my_service "session-management/service"
 // 	"time"
 
 // 	"github.com/emicklei/go-restful/v3"

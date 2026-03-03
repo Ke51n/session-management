@@ -2,7 +2,7 @@ package service
 
 import (
 	"log"
-	my_models "session-demo/models"
+	my_models "session-management/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

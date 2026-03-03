@@ -3,7 +3,7 @@ package response
 import (
 	"log"
 	"net/http"
-	"session-demo/models"
+	"session-management/models"
 
 	"github.com/emicklei/go-restful/v3"
 )

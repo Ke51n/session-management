@@ -4,9 +4,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"session-demo/models"
-	"session-demo/requests"
-	"session-demo/response"
+	"session-management/models"
+	"session-management/requests"
+	"session-management/response"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -26,6 +26,7 @@ func CreateProject(req *requests.CreateAndUpdateProjectReq, userID string) (*mod
 	project := &models.Project{
 		ID:                uuid.New().String(),
 		Title:             req.Title,
+		Source:            req.Source,
 		UserID:            userID,
 		CustomInstruction: req.CustomInstruction,
 		Files:             req.Files,
@@ -58,6 +59,7 @@ func UpdateProject(req *requests.CreateAndUpdateProjectReq, projectID string, us
 	}
 
 	project.Title = req.Title
+	project.Source = req.Source
 	project.CustomInstruction = req.CustomInstruction
 	project.Files = req.Files
 	project.ToolsConfig = req.ToolConfig

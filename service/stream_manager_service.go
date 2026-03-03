@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 	"log"
-	constant "session-demo/const"
-	my_models "session-demo/models"
+	constant "session-management/const"
+	my_models "session-management/models"
 	"sync"
 	"time"
 )

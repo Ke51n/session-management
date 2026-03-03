@@ -45,6 +45,7 @@ type Project struct {
 	ID     string `gorm:"primaryKey;type:char(36)" json:"id"`
 	UserID string `gorm:"not null;index" json:"user_id"`
 	Title  string `gorm:"not null;default:'新项目'" json:"title"`
+	Source string `gorm:"not null" json:"source"`
 
 	CustomInstruction string   `gorm:"type:longtext" json:"custom_instruction"` // 自定义指令
 	Files             FileList `gorm:"type:longtext" json:"files"`              // 文件列表

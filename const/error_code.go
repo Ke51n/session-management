@@ -2,7 +2,7 @@ package constant
 
 import (
 	"net/http"
-	"session-demo/response"
+	"session-management/response"
 )
 
 var (

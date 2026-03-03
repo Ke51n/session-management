@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"reflect"
 
-	"session-demo/pkg/auth"
-	"session-demo/requests"
+	"session-management/pkg/auth"
+	"session-management/requests"
 
-	"session-demo/handler"
-	"session-demo/response"
+	"session-management/handler"
+	"session-management/response"
 
 	"github.com/emicklei/go-restful/v3"
 )
@@ -458,7 +458,8 @@ func main() {
 	//创建一个项目，指定标题（可选）
 	ws.Route(ws.POST("/projects").To(handler.CreateProjectHandler).
 		Doc("Create a new project").
-		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("requests.CreateAndEditProjectReq")).
+		Param(ws.BodyParameter("request", "CreateAndUpdateProjectReq").
+			DataType(reflect.TypeFor[requests.CreateAndUpdateProjectReq]().String()).Required(true)).
 		Returns(201, "Created", response.CreateOrEditProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 
@@ -466,7 +467,7 @@ func main() {
 	ws.Route(ws.PATCH("/projects/{projectId}").To(handler.UpdateProjectHandler).
 		Doc("Update a project title").
 		Param(projectIdParam).
-		Param(ws.BodyParameter("request", "CreateAndEditProjectReq").DataType("requests.CreateAndEditProjectReq")).
+		Param(ws.BodyParameter("request", "CreateAndUpdateProjectReq").DataType("requests.CreateAndEditProjectReq")).
 		Returns(200, "OK", response.CreateOrEditProjectResponse{}).
 		Returns(400, "Bad Request", nil))
 

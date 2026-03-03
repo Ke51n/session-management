@@ -3,10 +3,10 @@ package handler
 import (
 	"net/http"
 
-	"session-demo/pkg/auth"
-	"session-demo/requests"
-	"session-demo/response"
-	"session-demo/service"
+	"session-management/pkg/auth"
+	"session-management/requests"
+	"session-management/response"
+	"session-management/service"
 
 	"github.com/emicklei/go-restful/v3"
 )

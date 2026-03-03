@@ -1,14 +1,15 @@
 package requests
 
 import (
-	my_models "session-demo/models"
+	my_models "session-management/models"
 )
 
 // ========== 请求结构 ==========
 //
 // 创建项目请求结构
 type CreateAndUpdateProjectReq struct {
-	Title string `json:"title"`
+	Title  string `json:"title"`
+	Source string `json:"source"`
 	// 自定义指令
 	CustomInstruction string           `json:"custom_instruction"`
 	Files             []my_models.File `json:"files"`
