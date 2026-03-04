@@ -460,38 +460,31 @@ func main() {
 		Doc("Create a new project").
 		Param(ws.BodyParameter("request", "CreateAndUpdateProjectReq").
 			DataType(reflect.TypeFor[requests.CreateAndUpdateProjectReq]().String()).Required(true)).
-		Returns(201, "Created", response.CreateOrEditProjectResponse{}).
-		Returns(400, "Bad Request", nil))
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), response.CommonResponse{}))
 
 	//更新项目
 	ws.Route(ws.PATCH("/projects/{projectId}").To(handler.UpdateProjectHandler).
 		Doc("Update a project title").
 		Param(projectIdParam).
-		Param(ws.BodyParameter("request", "CreateAndUpdateProjectReq").DataType("requests.CreateAndEditProjectReq")).
-		Returns(200, "OK", response.CreateOrEditProjectResponse{}).
-		Returns(400, "Bad Request", nil))
+		Param(ws.BodyParameter("request", "CreateAndUpdateProjectReq").DataType(reflect.TypeFor[requests.CreateAndUpdateProjectReq]().String())).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), response.CommonResponse{}))
 
 	//查询所有项目
 	ws.Route(ws.GET("/projects").To(handler.ListProjectsHandler).
 		Doc("List all projects").
-		Returns(200, "OK", response.CommonResponse{}).
-		Returns(400, "Bad Request", nil))
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), response.CommonResponse{}))
 
 	//删除一个项目
 	ws.Route(ws.DELETE("/projects/{projectId}").To(handler.DeleteProjectHandler).
 		Doc("Delete a project").
 		Param(projectIdParam).
-		Returns(204, "No Content", nil).
-		Returns(400, "Bad Request", nil))
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), response.CommonResponse{}))
 
 	// 查询某个项目下的所有会话
 	ws.Route(ws.GET("/projects/{projectId}/sessions").To(handler.ListProjectSessionsHandler).
 		Doc("List all sessions under a project").
 		Param(projectIdParam).
-		Returns(200, "OK", response.CommonResponse{}).
-		Returns(401, "Unauthorized", nil).
-		Returns(403, "Forbidden", nil).
-		Returns(404, "Not Found", nil))
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), response.CommonResponse{}))
 
 	//会话
 	// 查询所有会话

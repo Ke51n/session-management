@@ -1,9 +1,6 @@
 package models
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,30 +12,30 @@ type User struct {
 }
 
 type JSONMap map[string]any // 避免重复定义
-// Value 实现 driver.Valuer 接口：Go → 数据库
-func (j JSONMap) Value() (driver.Value, error) {
-	if j == nil {
-		return nil, nil
-	}
-	return json.Marshal(j)
-}
+// // Value 实现 driver.Valuer 接口：Go → 数据库
+// func (j JSONMap) Value() (driver.Value, error) {
+// 	if j == nil {
+// 		return nil, nil
+// 	}
+// 	return json.Marshal(j)
+// }
 
-// Scan 实现 sql.Scanner 接口：数据库 → Go
-func (j *JSONMap) Scan(value any) error {
-	if value == nil {
-		*j = nil
-		return nil
-	}
+// // Scan 实现 sql.Scanner 接口：数据库 → Go
+// func (j *JSONMap) Scan(value any) error {
+// 	if value == nil {
+// 		*j = nil
+// 		return nil
+// 	}
 
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, j)
-	case string:
-		return json.Unmarshal([]byte(v), j)
-	default:
-		return errors.New("unsupported scan type for JSONMap")
-	}
-}
+// 	switch v := value.(type) {
+// 	case []byte:
+// 		return json.Unmarshal(v, j)
+// 	case string:
+// 		return json.Unmarshal([]byte(v), j)
+// 	default:
+// 		return errors.New("unsupported scan type for JSONMap")
+// 	}
+// }
 
 // Project 项目表
 type Project struct {
@@ -47,16 +44,15 @@ type Project struct {
 	Title  string `gorm:"not null;default:'新项目'" json:"title"`
 	Source string `gorm:"not null" json:"source"`
 
-	CustomInstruction string   `gorm:"type:longtext" json:"custom_instruction"` // 自定义指令
-	Files             FileList `gorm:"type:longtext" json:"files"`              // 文件列表
-	ToolsConfig       JSONMap  `gorm:"type:longtext" json:"tools_config"`       // 工具配置
-	ModelSvcsConfig   JSONMap  `gorm:"type:longtext" json:"model_svcs_config"`  // 模型服务配置
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Deleted   bool      `gorm:"not null;default:false" json:"deleted"`      //是否删除
-	Version   int64     `gorm:"not null;default:1" json:"version"`          // 更新次数
-	Extension JSONMap   `gorm:"type:text;serializer:json" json:"extension"` // 扩展字段
+	CustomInstruction string    `gorm:"type:longtext" json:"custom_instruction"`            // 自定义指令
+	Files             FileList  `gorm:"type:json;serializer:json" json:"files"`             // 文件列表
+	ToolsConfig       JSONMap   `gorm:"type:json;serializer:json" json:"tools_config"`      // 工具配置
+	ModelSvcsConfig   JSONMap   `gorm:"type:json;serializer:json" json:"model_svcs_config"` // 模型服务配置
+	CreatedAt         time.Time `json:"created_at"`                                         //
+	UpdatedAt         time.Time `json:"updated_at"`
+	Deleted           bool      `gorm:"not null;default:false" json:"deleted"`      //是否删除
+	Version           int64     `gorm:"not null;default:1" json:"version"`          // 更新次数
+	Extension         JSONMap   `gorm:"type:json;serializer:json" json:"extension"` // 扩展字段
 
 }
 
@@ -72,7 +68,7 @@ type Session struct {
 	Deleted   bool      `gorm:"not null;default:false" json:"deleted"`      // 是否删除
 	Archived  bool      `gorm:"not null;default:false" json:"archived"`     // 是否归档
 	ShareLink *string   `gorm:"type:varchar(255)" json:"share_link"`        //
-	Extension JSONMap   `gorm:"type:text;serializer:json" json:"extension"` // 扩展字段（存 JSON 字符串）
+	Extension JSONMap   `gorm:"type:json;serializer:json" json:"extension"` // 扩展字段（存 JSON 字符串）
 }
 
 // Message 消息表
@@ -84,15 +80,15 @@ type Message struct {
 	Content   string  `gorm:"type:longtext;not null" json:"content"`
 	Status    string  `gorm:"type:varchar(20);not null" json:"status"` // 消息状态，如"FINISHED"、"PROCESSING"、"INTERRUPTED"
 
-	Steps StepList `gorm:"type:longtext" json:"steps"` // ← 关键：用自定义类型 + longtext
-	Files FileList `gorm:"type:longtext" json:"files"` // 建议用 json 而非 text（PostgreSQL）或 longtext（MySQL）
+	Steps StepList `gorm:"type:json;serializer:json" json:"steps"` // ← 关键：用自定义类型 + json
+	Files FileList `gorm:"type:json;serializer:json" json:"files"` // 建议用 json 而非 text（PostgreSQL）或 longtext（MySQL）
 
 	TokenCount int       `gorm:"default:0"` // 建议添加：消息token数统计
 	CreatedAt  time.Time `gorm:"not null" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"not null" json:"updated_at"`
 	Deleted    bool      `gorm:"not null;default:false" json:"deleted"`      //是否删除
-	Extension  JSONMap   `gorm:"type:text;serializer:json" json:"extension"` // 扩展字段（存 JSON 字符串）
-	Metadata   JSONMap   `gorm:"type:text;serializer:json" json:"metadata"`  //其他信息
+	Extension  JSONMap   `gorm:"type:json;serializer:json" json:"extension"` // 扩展字段（存 JSON 字符串）
+	Metadata   JSONMap   `gorm:"type:json;serializer:json" json:"metadata"`  //其他信息
 }
 
 // StepNode 步骤节点，表示助手的思考、工具调用等
@@ -106,56 +102,56 @@ type StepNode struct {
 	Target   string  `json:"target"`
 	Input    JSONMap `json:"input"`
 	Output   string  `json:"output"`
-	Metadata JSONMap `gorm:"type:text;serializer:json" json:"metadata"` //其他信息
+	Metadata JSONMap `gorm:"type:json;serializer:json" json:"metadata"` //其他信息
 }
 
 type StepList []StepNode
 type FileList []File
 
-func (s FileList) Value() (driver.Value, error) {
-	if s == nil {
-		return nil, nil
-	}
-	return json.Marshal(s)
-}
+// func (s FileList) Value() (driver.Value, error) {
+// 	if s == nil {
+// 		return nil, nil
+// 	}
+// 	return json.Marshal(s)
+// }
 
-func (s *FileList) Scan(value any) error {
-	if value == nil {
-		*s = nil
-		return nil
-	}
+// func (s *FileList) Scan(value any) error {
+// 	if value == nil {
+// 		*s = nil
+// 		return nil
+// 	}
 
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, s)
-	case string:
-		return json.Unmarshal([]byte(v), s)
-	default:
-		return errors.New("cannot scan FileList from unsupported type")
-	}
-}
-func (s StepList) Value() (driver.Value, error) {
-	if s == nil {
-		return nil, nil
-	}
-	return json.Marshal(s)
-}
+// 	switch v := value.(type) {
+// 	case []byte:
+// 		return json.Unmarshal(v, s)
+// 	case string:
+// 		return json.Unmarshal([]byte(v), s)
+// 	default:
+// 		return errors.New("cannot scan FileList from unsupported type")
+// 	}
+// }
+// func (s StepList) Value() (driver.Value, error) {
+// 	if s == nil {
+// 		return nil, nil
+// 	}
+// 	return json.Marshal(s)
+// }
 
-func (s *StepList) Scan(value any) error {
-	if value == nil {
-		*s = nil
-		return nil
-	}
+// func (s *StepList) Scan(value any) error {
+// 	if value == nil {
+// 		*s = nil
+// 		return nil
+// 	}
 
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, s)
-	case string:
-		return json.Unmarshal([]byte(v), s)
-	default:
-		return errors.New("cannot scan StepList from unsupported type")
-	}
-}
+// 	switch v := value.(type) {
+// 	case []byte:
+// 		return json.Unmarshal(v, s)
+// 	case string:
+// 		return json.Unmarshal([]byte(v), s)
+// 	default:
+// 		return errors.New("cannot scan StepList from unsupported type")
+// 	}
+// }
 
 type File struct {
 	ID                 string  `json:"id"`
@@ -225,9 +221,9 @@ func (m *Message) BeforeCreate(tx *gorm.DB) error {
 
 func (p *Project) BeforeCreate(tx *gorm.DB) error {
 	// 初始化 Extension 字段
-	if p.Extension == nil {
-		p.Extension = JSONMap{}
-	}
+	// if p.Extension == nil {
+	// 	p.Extension = JSONMap{}
+	// }
 	// 确保其他必填字段
 	if p.Title == "" {
 		p.Title = "新项目"

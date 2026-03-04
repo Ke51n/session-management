@@ -4,9 +4,53 @@ import (
 	"log"
 	"net/http"
 	response "session-management/response"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
 )
+
+type (
+	JWTClaim      = string
+	JWTTokenScope = string
+)
+
+const (
+	// CV 模型开发角色
+	UserRoleAdmin = "admin"
+	UserRoleGuest = "guest"
+	// CV 模型应用角色
+	UserRoleCVAdmin = "ROLE_ADMIN"
+	UserRoleCVBasic = "ROLE_BASIC"
+	// 兼容 SOPHON BASE 产品线角色
+	UserRoleSophonAdmin = "SOPHON_ADMIN"
+	UserRoleSophonBasic = "SOPHON_BASIC"
+
+	DefaultUserName                     = "thinger"
+	DefaultIss                          = "transwarp"
+	DefaultSub                          = "llmops"
+	InnerAuthCtx                        = "__auth_ctx__" // InnerAuthCtx 用于完成用户验证后，将用户信息存入 HTTP 请求上下文
+	JWTTokenScopeInternal JWTTokenScope = "internal"
+)
+
+type JWToken struct {
+	username  string
+	roles     []string
+	scope     string
+	expiredAt int64 // unix second
+	issuedAt  int64
+	iss       string
+	sub       string
+}
+
+var defaultToken = &JWToken{
+	username:  DefaultUserName,
+	roles:     []string{UserRoleSophonAdmin, UserRoleAdmin, UserRoleCVAdmin},
+	scope:     JWTTokenScopeInternal,
+	expiredAt: time.Now().Add(24 * time.Hour).Unix(),
+	issuedAt:  time.Now().Unix(),
+	iss:       DefaultIss,
+	sub:       DefaultSub,
+}
 
 // 从请求头中获取用户ID
 func getUserIdFromHeader(req *restful.Request) string {

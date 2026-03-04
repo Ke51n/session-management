@@ -14,9 +14,10 @@ type CreateAndUpdateProjectReq struct {
 	CustomInstruction string           `json:"custom_instruction"`
 	Files             []my_models.File `json:"files"`
 	// 工具配置
-	ToolConfig my_models.JSONMap `gorm:"type:text;serializer:json" json:"tool_config"`
+	ToolConfig my_models.JSONMap `json:"tool_config"`
 	// 模型服务配置
-	ModelServiceConfig my_models.JSONMap `gorm:"type:text;serializer:json" json:"model_service_config"`
+	ModelServiceConfig my_models.JSONMap `json:"model_service_config"`
+	Extension          my_models.JSONMap `json:"extension"` // 扩展字段
 }
 
 // 创建会话请求结构

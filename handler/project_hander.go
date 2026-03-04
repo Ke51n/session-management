@@ -28,7 +28,7 @@ func CreateProjectHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusCreated, response.CreateProjectResponse{ProjectID: project.ID})
+	response.WriteSuccess(resp, http.StatusCreated, project.ID)
 }
 
 // 更新项目
@@ -50,7 +50,7 @@ func UpdateProjectHandler(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	response.WriteSuccess(resp, http.StatusOK, response.CreateOrEditProjectResponse{ProjectID: projectID})
+	response.WriteSuccess(resp, http.StatusOK, projectID)
 }
 
 // 删除一个项目

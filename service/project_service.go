@@ -4,9 +4,11 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"session-management/dao"
 	"session-management/models"
 	"session-management/requests"
 	"session-management/response"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -32,8 +34,10 @@ func CreateProject(req *requests.CreateAndUpdateProjectReq, userID string) (*mod
 		Files:             req.Files,
 		ToolsConfig:       req.ToolConfig,
 		ModelSvcsConfig:   req.ModelServiceConfig,
+		Extension:         req.Extension,
 	}
-	if err := Dbservice.DB.Create(project).Error; err != nil {
+	log.Printf("[INFO] Creating project %v", project) // 记录创建的项目信息，注意不要记录敏感信息
+	if _, err := dao.AiAppUniDAO.CreateProject(project); err != nil {
 		return nil, response.WrapError(500, "创建项目失败", err)
 	}
 	return project, nil
@@ -64,7 +68,10 @@ func UpdateProject(req *requests.CreateAndUpdateProjectReq, projectID string, us
 	project.Files = req.Files
 	project.ToolsConfig = req.ToolConfig
 	project.ModelSvcsConfig = req.ModelServiceConfig
-	if err := Dbservice.DB.Save(&project).Error; err != nil {
+	project.Version++
+	project.UpdatedAt = time.Now()
+	// 更新数据库
+	if err := dao.AiAppUniDAO.UpdateProject(&project); err != nil {
 		return nil, response.WrapError(500, "更新项目失败", err)
 	}
 	log.Printf("[INFO] User %s updated project %s", userID, projectID)
@@ -76,7 +83,7 @@ func ListProjects(userID string) ([]models.Project, error) {
 	// 查询数据库
 	var projects []models.Project
 	log.Println("Listing projects for userID:", userID)
-	err := Dbservice.DB.Where("user_id = ? AND deleted = ?", userID, false).Find(&projects).Error
+	projects, err := dao.AiAppUniDAO.ListProjects(userID)
 	if err != nil {
 		return nil, response.WrapError(500, "查询项目失败", err)
 	}
@@ -85,7 +92,20 @@ func ListProjects(userID string) ([]models.Project, error) {
 
 // 删除一个项目
 func DeleteProject(projectID string, userID string) error {
-	if err := Dbservice.DB.Delete(&models.Project{}, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
+	//查找项目
+	var project models.Project
+	if foundProject, err := dao.AiAppUniDAO.FindProject(userID, projectID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return response.WrapError(404, "项目不存在", err)
+		}
+	} else {
+		project = *foundProject
+	}
+
+	project.Version++
+	project.UpdatedAt = time.Now()
+	project.Deleted = true // 软删除
+	if err := Dbservice.DB.Model(&project).Omit("created_at").Updates(project).Error; err != nil {
 		return response.WrapError(500, "删除项目失败", err)
 	}
 	log.Printf("[INFO] User %s deleted project %s", userID, projectID)
@@ -96,11 +116,10 @@ func DeleteProject(projectID string, userID string) error {
 func GetProjectById(userID, projectID string) (*models.Project, error) {
 
 	var project models.Project
-	if err := Dbservice.DB.First(&project, "id = ? and user_id = ?", projectID, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, &response.BizError{HttpStatus: http.StatusNotFound, Code: 403, Msg: "项目不存在"}
-		}
+	if foundProject, err := dao.AiAppUniDAO.FindProject(userID, projectID); err != nil {
 		return nil, response.WrapError(500, "获取项目失败", err)
+	} else {
+		project = *foundProject
 	}
 	return &project, nil
 }

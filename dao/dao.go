@@ -1,4 +1,4 @@
-package service
+package dao
 
 import (
 	"log"
@@ -8,17 +8,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// 会话服务
-type DBService struct {
-	DB *gorm.DB
+type UniDAO struct {
+	db *gorm.DB
 }
 
-var Dbservice *DBService
+var AiAppUniDAO *UniDAO
 
 // 初始化
 func init() {
 	initDB()
-	log.Println("SessionService initialized")
+	log.Println("AiAppUniDAO initialized")
 }
 
 // 初始化数据库
@@ -45,7 +44,7 @@ func initDB() {
 	// 创建一些测试数据
 	// createTestData()
 
-	log.Println("数据库初始化完成1")
+	log.Println("dao初始化完成1")
 
-	Dbservice = &DBService{DB: db}
+	AiAppUniDAO = &UniDAO{db: db}
 }
