@@ -21,6 +21,7 @@ func NewChatHandler(req *restful.Request, resp *restful.Response) {
 		response.WriteBizError(resp, err)
 		return
 	}
+	log.Printf("NewChatHandler request body: %+v", reqBody)
 
 	userId := auth.GetUserID(req)
 	sessionID := req.PathParameter("sessionId")

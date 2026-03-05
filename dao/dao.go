@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// UniDAO 统一数据访问对象，封装数据库操作
 type UniDAO struct {
 	db *gorm.DB
 }

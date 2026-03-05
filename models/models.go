@@ -64,7 +64,7 @@ type Session struct {
 	Title     string    `gorm:"type:varchar(255);not null" json:"title"`
 	CreatedAt time.Time `gorm:"not null" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null" json:"updated_at"`
-	Source    string    `gorm:"type:varchar(32);not null" json:"source"`    // 会话来源，如"user_create"
+	Source    string    `gorm:"type:varchar(32);not null" json:"source"`    // 会话来源，如""
 	Deleted   bool      `gorm:"not null;default:false" json:"deleted"`      // 是否删除
 	Archived  bool      `gorm:"not null;default:false" json:"archived"`     // 是否归档
 	ShareLink *string   `gorm:"type:varchar(255)" json:"share_link"`        //

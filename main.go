@@ -568,8 +568,9 @@ func main() {
 		To(handler.NewChatHandler).
 		Doc("Chat in a session (SSE)").
 		Param(sessionIdParam).
-		Param(ws.BodyParameter("request", "StreamChatReq").
-			DataType("requests.StreamChatReq")).
+		Reads(requests.StreamChatReq{}).
+		// Param(ws.BodyParameter("request", "StreamChatReq").
+		// 	DataType("requests.StreamChatReq")).
 		Returns(200, "OK", nil))
 
 	//resume接口
